@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "569977301187",
+    "project_id": "btl-nhom2-ptudcctbdd",
+    "storage_bucket": "btl-nhom2-ptudcctbdd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:569977301187:android:1dcf2fa887a45362029a76",
+        "android_client_info": {
+          "package_name": "com.example.btl_nhom2_ptudcctbdd"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "569977301187-m57rdt43q24oqj4nmgqjdmf2isjua3cq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPmOEyTIPgmo9mHeG9WWx6ccQ0jrdtlyU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "569977301187-m57rdt43q24oqj4nmgqjdmf2isjua3cq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -9,83 +9,64 @@ class CartTab extends StatefulWidget {
 }
 
 class _CartTabState extends State<CartTab> {
-  // Giỏ hàng rỗng - sẽ được điền từ Firebase sau
   final List<Map<String, dynamic>> _cartItems = [];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F6),
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Giỏ hàng',
-          style: TextStyle(
-            color: Color(0xFF1C1C1E),
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Your Cart', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+            if (_cartItems.isNotEmpty)
+              Text('${_cartItems.length} item${_cartItems.length > 1 ? 's' : ''}',
+                  style: const TextStyle(color: AppTheme.primaryColor, fontSize: 13, fontWeight: FontWeight.w600)),
+          ],
         ),
-        centerTitle: true,
         actions: [
           if (_cartItems.isNotEmpty)
             TextButton(
               onPressed: () => setState(() => _cartItems.clear()),
-              child: const Text('Xóa tất', style: TextStyle(color: Colors.redAccent)),
+              child: const Text('Xóa tất', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
             )
         ],
       ),
-      body: _cartItems.isEmpty ? _buildEmptyCart() : _buildCartList(),
+      body: _cartItems.isEmpty ? _buildEmptyState() : _buildCart(),
     );
   }
 
-  Widget _buildEmptyCart() {
+  Widget _buildEmptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 120,
-            height: 120,
+            width: 130,
+            height: 130,
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.08),
+              color: AppTheme.primaryColor.withOpacity(0.07),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.shopping_cart_outlined,
-              size: 60,
-              color: AppTheme.primaryColor,
-            ),
+            child: const Icon(Icons.shopping_bag_outlined, size: 64, color: AppTheme.primaryColor),
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'Giỏ hàng đang trống',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1C1C1E),
-            ),
-          ),
+          const SizedBox(height: 28),
+          const Text('Giỏ hàng đang trống', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
           const SizedBox(height: 8),
-          const Text(
-            'Hãy thêm món ăn yêu thích của bạn\nvào giỏ hàng nhé!',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF8E8E93),
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 40),
+          const Text('Hãy thêm món ăn yêu thích vào giỏ hàng nhé!',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 14, height: 1.5)),
+          const SizedBox(height: 36),
           FilledButton.icon(
             onPressed: () {},
-            icon: const Icon(Icons.explore_outlined),
-            label: const Text('Khám phá món ăn', style: TextStyle(fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.explore_outlined, size: 20),
+            label: const Text('Khám phá thực đơn', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
           ),
         ],
@@ -93,56 +74,54 @@ class _CartTabState extends State<CartTab> {
     );
   }
 
-  Widget _buildCartList() {
-    double subtotal = _cartItems.fold(0, (sum, item) => sum + (item['price'] ?? 0) * (item['qty'] ?? 1));
-    double shipping = subtotal > 0 ? 15000 : 0;
-    double total = subtotal + shipping;
+  Widget _buildCart() {
+    double subtotal = _cartItems.fold(0.0, (s, i) => s + (i['price'] as double) * (i['qty'] as int));
+    double delivery = 4.50;
+    double total    = subtotal + delivery;
 
     return Column(
       children: [
         Expanded(
-          child: ListView.builder(
+          child: ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: _cartItems.length,
-            itemBuilder: (context, index) => _buildCartItemCard(index),
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, i) => _buildItemCard(i),
           ),
         ),
-        _buildOrderSummary(subtotal, shipping, total),
+        _buildSummary(subtotal, delivery, total),
       ],
     );
   }
 
-  Widget _buildCartItemCard(int index) {
-    final item = _cartItems[index];
+  Widget _buildItemCard(int i) {
+    final item = _cartItems[i];
     return Dismissible(
       key: ValueKey(item['id']),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: Colors.redAccent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
+        decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 28),
       ),
-      onDismissed: (_) => setState(() => _cartItems.removeAt(index)),
+      onDismissed: (_) => setState(() => _cartItems.removeAt(i)),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.dividerColor),
         ),
+        padding: const EdgeInsets.all(12),
         child: Row(
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                width: 72,
-                height: 72,
+                width: 76,
+                height: 76,
                 color: const Color(0xFFF0F0F0),
-                child: const Icon(Icons.fastfood, color: Colors.grey),
+                child: const Icon(Icons.fastfood, color: Colors.grey, size: 32),
               ),
             ),
             const SizedBox(width: 12),
@@ -150,30 +129,26 @@ class _CartTabState extends State<CartTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimary)),
                   const SizedBox(height: 4),
-                  Text('${item['note'] ?? ''}', style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
-                  const SizedBox(height: 8),
+                  Text(item['note'] ?? '', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                  const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${((item['price'] ?? 0) * (item['qty'] ?? 1)).toStringAsFixed(0)}đ',
-                        style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
+                      Text('\$${((item['price'] as double) * (item['qty'] as int)).toStringAsFixed(2)}',
+                          style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
                       Row(
                         children: [
-                          _qtyButton(Icons.remove, () {
-                            setState(() {
-                              if ((item['qty'] ?? 1) > 1) item['qty']--;
-                              else _cartItems.removeAt(index);
-                            });
-                          }),
+                          _qtyBtn(Icons.remove, () => setState(() {
+                            if ((item['qty'] as int) > 1) item['qty']--;
+                            else _cartItems.removeAt(i);
+                          })),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('${item['qty'] ?? 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Text('${item['qty']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           ),
-                          _qtyButton(Icons.add, () => setState(() => item['qty'] = (item['qty'] ?? 1) + 1)),
+                          _qtyBtn(Icons.add, () => setState(() => item['qty']++)),
                         ],
                       )
                     ],
@@ -187,83 +162,83 @@ class _CartTabState extends State<CartTab> {
     );
   }
 
-  Widget _qtyButton(IconData icon, VoidCallback onTap) {
+  Widget _qtyBtn(IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: const Color(0xFFF0F0F0),
+          color: AppTheme.primaryColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, size: 16),
+        child: Icon(icon, size: 16, color: AppTheme.primaryColor),
       ),
     );
   }
 
-  Widget _buildOrderSummary(double subtotal, double shipping, double total) {
+  Widget _buildSummary(double subtotal, double delivery, double total) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, -4))],
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 16, offset: Offset(0, -4))],
       ),
       child: Column(
         children: [
-          // Voucher
+          // Apply Promo Code
           OutlinedButton.icon(
             onPressed: () {},
             icon: const Icon(Icons.local_offer_outlined, size: 18),
-            label: const Text('Chọn mã giảm giá'),
+            label: const Text('Apply Promo Code'),
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppTheme.primaryColor),
-              foregroundColor: AppTheme.primaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               minimumSize: const Size(double.infinity, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Tạm tính', style: TextStyle(color: Color(0xFF8E8E93))),
-              Text('${subtotal.toStringAsFixed(0)}đ', style: const TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
+          _summaryRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Phí giao hàng', style: TextStyle(color: Color(0xFF8E8E93))),
-              Text('${shipping.toStringAsFixed(0)}đ', style: const TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
+          _summaryRow('Delivery Fee', '\$${delivery.toStringAsFixed(2)}'),
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(color: Color(0xFFEEEEEE)),
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Divider(color: AppTheme.dividerColor),
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Tổng cộng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Text('${total.toStringAsFixed(0)}đ',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+              const Text('Total Price', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimary)),
+              Text('\$${total.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: AppTheme.primaryColor)),
             ],
           ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {},
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              minimumSize: const Size(double.infinity, 56),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: const Text('Proceed to Checkout', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
             ),
-            child: const Text('Thanh toán', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
+      ],
     );
   }
 }

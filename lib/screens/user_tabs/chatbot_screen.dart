@@ -17,57 +17,54 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   void initState() {
     super.initState();
-    // Welcome message
     _messages.add({
       'role': 'bot',
-      'text': 'Xin chào! 👋 Tôi là trợ lý AI của FoodExpress.\n\nHôm nay bạn muốn ăn gì? Tôi có thể gợi ý món ăn, quán ăn, hoặc giúp bạn tìm combo tiết kiệm nhất nhé!',
+      'text': 'Xin chào! 👋 Tôi là AI Chef của FoodExpress.\n\nHôm nay bạn đang thèm gì nào? Tôi sẵn sàng gợi ý món ngon cho bạn!',
       'time': _now(),
     });
   }
 
   String _now() {
-    final now = TimeOfDay.now();
-    final h = now.hour.toString().padLeft(2, '0');
-    final m = now.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+    final n = TimeOfDay.now();
+    return '${n.hour.toString().padLeft(2, '0')}:${n.minute.toString().padLeft(2, '0')}';
   }
 
-  void _sendMessage(String text) {
+  void _send(String text) {
     if (text.trim().isEmpty) return;
     _controller.clear();
-
     setState(() {
       _messages.add({'role': 'user', 'text': text.trim(), 'time': _now()});
       _isTyping = true;
     });
     _scrollToBottom();
 
-    // Simulate AI typing reply
     Future.delayed(const Duration(seconds: 1, milliseconds: 200), () {
       if (!mounted) return;
       setState(() {
         _isTyping = false;
+        final lower = text.toLowerCase();
+        bool showCard = lower.contains('gợi ý') || lower.contains('ăn gì') || lower.contains('đề xuất');
         _messages.add({
           'role': 'bot',
-          'text': _getAIReply(text),
+          'text': _reply(text),
           'time': _now(),
-          'hasCard': text.toLowerCase().contains('gợi ý') || text.toLowerCase().contains('ăn gì') || text.toLowerCase().contains('đề xuất'),
+          'hasCard': showCard,
         });
       });
       _scrollToBottom();
     });
   }
 
-  String _getAIReply(String input) {
-    final lower = input.toLowerCase();
-    if (lower.contains('ăn gì') || lower.contains('gợi ý') || lower.contains('đề xuất')) {
-      return 'Để tôi gợi ý cho bạn một số món hấp dẫn hôm nay nhé! 🍜';
-    } else if (lower.contains('ship') || lower.contains('giao hàng')) {
-      return 'Phí giao hàng dao động từ 10.000đ - 25.000đ tuỳ khoảng cách. Đơn trên 150.000đ sẽ được miễn phí ship! 🛵';
-    } else if (lower.contains('voucher') || lower.contains('mã giảm')) {
-      return 'Bạn có thể xem danh sách mã giảm giá trong Hồ sơ > Ví & Khuyến mãi. Hoặc nhập mã khi thanh toán nhé! 🎫';
+  String _reply(String input) {
+    final l = input.toLowerCase();
+    if (l.contains('ăn gì') || l.contains('gợi ý') || l.contains('đề xuất')) {
+      return 'Tuyệt vời! Đây là một vài gợi ý dành cho bạn 🍜';
+    } else if (l.contains('ship') || l.contains('giao hàng')) {
+      return 'Phí giao hàng từ 10.000đ–25.000đ. Đơn trên 150.000đ miễn phí ship! 🛵';
+    } else if (l.contains('voucher') || l.contains('mã giảm')) {
+      return 'Vào Hồ sơ > Ví & Khuyến mãi để xem mã giảm giá nhé! 🎫';
     }
-    return 'Tôi hiểu rồi!\n\nBạn có thể hỏi tôi về: gợi ý món ăn, phí giao hàng, voucher, hoặc bất kỳ điều gì liên quan đến FoodExpress nhé! 😊';
+    return 'Tôi hiểu rồi! Bạn có thể hỏi về gợi ý món, phí ship, voucher hoặc bất kỳ thắc mắc nào về FoodExpress 😊';
   }
 
   void _scrollToBottom() {
@@ -85,31 +82,31 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F6),
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1C1C1E)),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: AppTheme.primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.smart_toy_outlined, color: AppTheme.primaryColor, size: 22),
+              child: const Icon(Icons.smart_toy_outlined, color: AppTheme.primaryColor, size: 20),
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
-                Text('Trợ lý AI', style: TextStyle(color: Color(0xFF1C1C1E), fontWeight: FontWeight.bold, fontSize: 16)),
-                Text('FoodExpress', style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
+                Text('AI Chef', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('Luôn sẵn sàng', style: TextStyle(color: Color(0xFF4CAF50), fontSize: 11, fontWeight: FontWeight.w600)),
               ],
             )
           ],
@@ -117,45 +114,76 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       ),
       body: Column(
         children: [
+          // ── Messages ──────────────────────────────────────────
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               itemCount: _messages.length + (_isTyping ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (_isTyping && index == _messages.length) {
-                  return _buildTypingIndicator();
-                }
-                final msg = _messages[index];
+              itemBuilder: (context, i) {
+                if (_isTyping && i == _messages.length) return _typingDots();
+                final msg = _messages[i];
                 final isBot = msg['role'] == 'bot';
                 return Column(
                   children: [
-                    isBot
-                        ? _buildBotBubble(msg['text'], msg['time'])
-                        : _buildUserBubble(msg['text'], msg['time']),
+                    isBot ? _botBubble(msg['text'], msg['time']) : _userBubble(msg['text'], msg['time']),
                     if (isBot && msg['hasCard'] == true) ...[
                       const SizedBox(height: 8),
-                      _buildFoodSuggestionCard(),
+                      _foodCard(),
                     ]
                   ],
                 );
               },
             ),
           ),
-          _buildInputBar(),
+
+          // ── Quick suggestions ─────────────────────────────────
+          if (_messages.length <= 2)
+            Container(
+              color: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              height: 42,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _chip('Gợi ý món hôm nay'),
+                  _chip('Phí giao hàng?'),
+                  _chip('Có voucher nào không?'),
+                ],
+              ),
+            ),
+
+          // ── Input ─────────────────────────────────────────────
+          _inputBar(),
         ],
       ),
     );
   }
 
-  Widget _buildBotBubble(String text, String time) {
+  Widget _chip(String text) {
+    return GestureDetector(
+      onTap: () => _send(text),
+      child: Container(
+        margin: const EdgeInsets.only(right: 8, bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.primaryColor.withOpacity(0.4)),
+        ),
+        child: Text(text, style: const TextStyle(color: AppTheme.primaryColor, fontSize: 13, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+
+  Widget _botBubble(String text, String time) {
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: const BorderRadius.only(
@@ -164,14 +192,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               bottomLeft: Radius.circular(18),
               bottomRight: Radius.circular(18),
             ),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 2))],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(text, style: const TextStyle(fontSize: 14, height: 1.5, color: Color(0xFF1C1C1E))),
+              Text(text, style: const TextStyle(fontSize: 14, height: 1.5, color: AppTheme.textPrimary)),
               const SizedBox(height: 4),
-              Text(time, style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93))),
+              Text(time, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             ],
           ),
         ),
@@ -179,14 +207,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
-  Widget _buildUserBubble(String text, String time) {
+  Widget _userBubble(String text, String time) {
     return Align(
       alignment: Alignment.centerRight,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: const BoxDecoration(
             color: AppTheme.primaryColor,
             borderRadius: BorderRadius.only(
@@ -201,7 +229,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             children: [
               Text(text, style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.white)),
               const SizedBox(height: 4),
-              Text(time, style: const TextStyle(fontSize: 11, color: Colors.white60)),
+              Text(time, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.6))),
             ],
           ),
         ),
@@ -209,48 +237,43 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
-  Widget _buildTypingIndicator() {
+  Widget _typingDots() {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            _dot(100),
-            const SizedBox(width: 4),
-            _dot(200),
-            const SizedBox(width: 4),
-            _dot(300),
-          ],
+          children: List.generate(3, (i) => _animDot(i * 150)),
         ),
       ),
     );
   }
 
-  Widget _dot(int delay) {
+  Widget _animDot(int delay) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: Duration(milliseconds: 600 + delay),
       curve: Curves.easeInOut,
-      builder: (context, value, child) => Opacity(
-        opacity: 0.4 + value * 0.6,
-        child: Container(
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle),
+      builder: (_, v, __) => Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: AppTheme.primaryColor.withOpacity(0.4 + v * 0.6),
+          shape: BoxShape.circle,
         ),
       ),
     );
   }
 
-  Widget _buildFoodSuggestionCard() {
+  Widget _foodCard() {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -259,7 +282,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 10, offset: const Offset(0, 3))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 3))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -269,9 +292,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               child: Container(
                 height: 100,
                 color: const Color(0xFFF0F0F0),
-                child: const Center(
-                  child: Icon(Icons.ramen_dining, size: 40, color: Colors.grey),
-                ),
+                child: const Center(child: Icon(Icons.ramen_dining, size: 40, color: Colors.grey)),
               ),
             ),
             Padding(
@@ -279,15 +300,29 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Gợi ý của AI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  const Text('Món ăn sẽ được hiển thị ở đây', style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93))),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('Combo Phở Đặc Biệt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      ),
+                      Row(
+                        children: const [
+                          Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                          SizedBox(width: 2),
+                          Text('4.8', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        ],
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('125.000đ', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 15)),
                   const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: () {},
-                      icon: const Icon(Icons.add_shopping_cart, size: 16),
-                      label: const Text('Thêm vào giỏ'),
+                      icon: const Icon(Icons.add_shopping_cart_rounded, size: 16),
+                      label: const Text('Add to cart', style: TextStyle(fontSize: 13)),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
                         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -304,12 +339,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
-  Widget _buildInputBar() {
+  Widget _inputBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 8, offset: const Offset(0, -2))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, -2))],
       ),
       child: Row(
         children: [
@@ -317,14 +352,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             child: TextField(
               controller: _controller,
               textInputAction: TextInputAction.send,
-              onSubmitted: _sendMessage,
+              onSubmitted: _send,
               decoration: InputDecoration(
                 hintText: 'Nhập tin nhắn...',
-                hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
                 filled: true,
                 fillColor: const Color(0xFFF0F0F0),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -333,7 +366,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
           const SizedBox(width: 10),
           GestureDetector(
-            onTap: () => _sendMessage(_controller.text),
+            onTap: () => _send(_controller.text),
             child: Container(
               width: 48,
               height: 48,

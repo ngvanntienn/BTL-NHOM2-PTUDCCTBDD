@@ -6,219 +6,353 @@ class HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top App Bar Header with Logo
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+            // ── Fixed Header ─────────────────────────────────────────
+            _buildHeader(),
+            // ── Scrollable Content ────────────────────────────────────
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.fastfood, color: AppTheme.primaryColor, size: 32),
-                    const SizedBox(width: 8),
-                    Text(
-                      'FoodExpress',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: AppTheme.primaryColor,
+                    // Greeting
+                    const Text(
+                      'Hôm nay bạn muốn ăn gì? 👋',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
                         fontWeight: FontWeight.bold,
+                        fontSize: 22,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Tìm kiếm món ngon xung quanh bạn',
+                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Search Bar
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.dividerColor),
+                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.search, color: AppTheme.textSecondary, size: 20),
+                          SizedBox(width: 10),
+                          Text('Tìm món ăn, quán ăn...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Promo Banner
+                    Container(
+                      height: 145,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFD32027), Color(0xFF8B0000)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.25),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text(
+                                    'ĐẶT NGAY HÔM NAY',
+                                    style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Giảm tới 50%\ncho Bún & Phở',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20, height: 1.3),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.ramen_dining, color: Colors.white54, size: 80),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+
+                    // Categories
+                    _sectionHeader('Khám phá theo loại', 'Xem tất cả'),
+                    const SizedBox(height: 16),
+                    _buildCategoryRow(),
+                    const SizedBox(height: 28),
+
+                    // AI Banner
+                    _buildAiBanner(),
+                    const SizedBox(height: 28),
+
+                    // Trending
+                    _sectionHeader('Món đang thịnh hành', 'Xem tất cả'),
+                    const SizedBox(height: 16),
+                    _buildTrendingRow(),
                   ],
                 ),
-                Stack(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications_none, color: AppTheme.textPrimary, size: 28),
-                      onPressed: () {},
-                    ),
-                    Positioned(
-                      right: 12,
-                      top: 12,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                      ),
-                    )
-                  ],
-                )
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Location Selector
-            Row(
-              children: const [
-                Icon(Icons.location_on, color: AppTheme.primaryColor, size: 20),
-                SizedBox(width: 4),
-                Text('Giao đến:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
-                SizedBox(width: 4),
-                Text('Chọn vị trí hiện tại', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-                Icon(Icons.arrow_drop_down, color: AppTheme.primaryColor),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Search Bar Placeholder
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFEEEEEE)),
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
-              ),
-              child: Row(
-                children: const [
-                   Icon(Icons.search, color: AppTheme.textSecondary),
-                   SizedBox(width: 8),
-                   Text('Tìm món ăn, quán ăn...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
-                ],
               ),
             ),
-            const SizedBox(height: 32),
-
-            // Banners Carousel Placeholder
-            Container(
-              height: 140,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFEEEEEE)),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.image_outlined, size: 40, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text('Trống quảng cáo / Sự kiện', style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Quick Categories Placeholder
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text('Danh Mục', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                Text('Xem tất cả', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 16, 
-              runSpacing: 16, 
-              alignment: WrapAlignment.start,
-              children: [
-                _buildEmptyCategory(),
-                _buildEmptyCategory(),
-                _buildEmptyCategory(),
-                _buildEmptyCategory(),
-              ],
-            ),
-            const SizedBox(height: 32),
-
-            // Trending Placeholder
-            const Text('Xu Hướng Mới', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 160,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: 4,
-                itemBuilder: (context, index) {
-                  return Container(
-                    width: 140,
-                    margin: const EdgeInsets.only(right: 16),
-                    decoration: BoxDecoration(
-                       color: Colors.white,
-                       borderRadius: BorderRadius.circular(16),
-                       border: Border.all(color: const Color(0xFFEEEEEE)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          height: 100,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF0F0F0),
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                          ),
-                          child: const Center(child: Icon(Icons.image_outlined, color: Colors.grey)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: const Text('Đang tải...', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                        )
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // AI Suggestion Banner
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.5)),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.1), blurRadius: 10)]
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.smart_toy, color: AppTheme.primaryColor, size: 40),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text('Trợ lý AI Gợi ý món', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
-                        SizedBox(height: 4),
-                        Text('Bấm vào biểu tượng Robot nổi ở dưới cùng để AI đưa ra những gợi ý phù hợp nhất.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.4)),
-                      ],
-                    ),
-                  )
-                ],
-              ),
-            ),
-            const SizedBox(height: 100), // padding bottom for fab
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEmptyCategory() {
+  Widget _buildHeader() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Logo + Location
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.fastfood_rounded, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text('Giao đến', style: TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, color: AppTheme.primaryColor, size: 14),
+                      SizedBox(width: 2),
+                      Text('Chọn địa chỉ', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+                      Icon(Icons.arrow_drop_down, color: AppTheme.primaryColor, size: 18),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // Notification bell
+          Stack(
+            children: [
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(Icons.notifications_none_rounded, color: AppTheme.textPrimary, size: 26),
+              ),
+              Positioned(
+                right: 12,
+                top: 12,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              )
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title, String action) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.textPrimary)),
+        Text(action, style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+      ],
+    );
+  }
+
+  Widget _buildCategoryRow() {
+    final cats = [
+      {'icon': Icons.rice_bowl_outlined,     'label': 'Cơm'},
+      {'icon': Icons.ramen_dining_outlined,   'label': 'Bún & Phở'},
+      {'icon': Icons.local_drink_outlined,    'label': 'Trà sữa'},
+      {'icon': Icons.fastfood_outlined,       'label': 'Snacks'},
+      {'icon': Icons.local_pizza_outlined,    'label': 'Pizza'},
+      {'icon': Icons.bakery_dining_outlined,  'label': 'Bánh mì'},
+      {'icon': Icons.coffee_outlined,         'label': 'Coffee'},
+      {'icon': Icons.more_horiz,              'label': 'Thêm'},
+    ];
     return SizedBox(
-      width: 70, 
-      child: Column(
+      height: 82,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        itemCount: cats.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, i) {
+          final cat = cats[i];
+          final isMore = cat['label'] == 'Thêm';
+          return GestureDetector(
+            onTap: () {},
+            child: SizedBox(
+              width: 54,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isMore
+                          ? const Color(0xFFF0F0F0)
+                          : AppTheme.primaryColor.withOpacity(0.09),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(
+                      cat['icon'] as IconData,
+                      color: isMore ? AppTheme.textSecondary : AppTheme.primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    cat['label'] as String,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAiBanner() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.06), blurRadius: 10)],
+      ),
+      child: Row(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFEEEEEE)),
+              color: AppTheme.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.category, color: Colors.grey, size: 24),
+            child: const Icon(Icons.smart_toy_outlined, color: AppTheme.primaryColor, size: 28),
           ),
-          const SizedBox(height: 8),
-          const Text('Đang tải', style: TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Gợi ý từ AI Chef', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimary)),
+                SizedBox(height: 3),
+                Text('Bấm Robot ở dưới để AI đề xuất món ngon!', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.arrow_forward, color: Colors.white, size: 16),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTrendingRow() {
+    return SizedBox(
+      height: 195,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: 4,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (_, i) => Container(
+          width: 145,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.dividerColor),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: Container(
+                  height: 110,
+                  color: const Color(0xFFF5F5F5),
+                  child: const Center(child: Icon(Icons.image_outlined, color: Colors.grey, size: 36)),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Đang tải...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('--đ', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(8)),
+                          child: const Icon(Icons.add, color: Colors.white, size: 14),
+                        )
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

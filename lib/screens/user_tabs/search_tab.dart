@@ -1,99 +1,175 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
-class SearchTab extends StatelessWidget {
+class SearchTab extends StatefulWidget {
   const SearchTab({super.key});
 
   @override
+  State<SearchTab> createState() => _SearchTabState();
+}
+
+class _SearchTabState extends State<SearchTab> {
+  final _controller = TextEditingController();
+  String _selectedFilter = 'Gần tôi';
+  String _query = '';
+
+  final List<String> _filters = ['Gần tôi', 'Đánh giá cao', 'Giá thấp-cao', 'Nhanh nhất'];
+
+  final List<Map<String, dynamic>> _categories = [
+    {'label': 'Healthy',  'icon': Icons.eco_outlined,            'color': Color(0xFF4CAF50)},
+    {'label': 'Burgers',  'icon': Icons.lunch_dining_outlined,   'color': Color(0xFFFF9800)},
+    {'label': 'Pizza',    'icon': Icons.local_pizza_outlined,    'color': Color(0xFFE91E63)},
+    {'label': 'Drinks',   'icon': Icons.local_bar_outlined,      'color': Color(0xFF2196F3)},
+    {'label': 'Noodles',  'icon': Icons.ramen_dining_outlined,   'color': Color(0xFFD32027)},
+    {'label': 'Snacks',   'icon': Icons.cookie_outlined,         'color': Color(0xFF795548)},
+    {'label': 'Coffee',   'icon': Icons.coffee_outlined,         'color': Color(0xFF6D4C41)},
+    {'label': 'Sushi',    'icon': Icons.set_meal_outlined,       'color': Color(0xFF009688)},
+  ];
+
+  @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Khám phá & Tìm kiếm'),
+      ),
+      body: Column(
         children: [
-          // Active Search Bar
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          // ── Search Bar ───────────────────────────────────────────
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: TextField(
+              controller: _controller,
+              onChanged: (v) => setState(() => _query = v),
               decoration: InputDecoration(
                 hintText: 'Tìm món ăn, quán ăn...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: const Icon(Icons.mic, color: AppTheme.primaryColor),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.white,
+                prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondary),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: AppTheme.textSecondary),
+                        onPressed: () {
+                          _controller.clear();
+                          setState(() => _query = '');
+                        },
+                      )
+                    : const Icon(Icons.mic_none, color: AppTheme.primaryColor),
               ),
             ),
           ),
-          
-          // Filters
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                _buildFilterChip('Gần tôi', true),
-                _buildFilterChip('Đánh giá cao', false),
-                _buildFilterChip('Giá từ thấp-cao', false),
-              ],
+
+          // ── Filter Chips ─────────────────────────────────────────
+          Container(
+            color: Colors.white,
+            height: 48,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              itemCount: _filters.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final selected = _filters[i] == _selectedFilter;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedFilter = _filters[i]),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: selected ? AppTheme.primaryColor : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: selected ? AppTheme.primaryColor : AppTheme.dividerColor,
+                      ),
+                    ),
+                    child: Text(
+                      _filters[i],
+                      style: TextStyle(
+                        color: selected ? Colors.white : AppTheme.textPrimary,
+                        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-          const SizedBox(height: 16),
+          const Divider(height: 1, color: AppTheme.dividerColor),
 
-          // Categories Grid Placeholder
+          // ── Body ─────────────────────────────────────────────────
           Expanded(
-            child: GridView.count(
-              padding: const EdgeInsets.all(16),
-              crossAxisCount: 2,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 2.5,
-              children: [
-                _buildCategoryCard('Đồ ăn nhanh', Icons.fastfood, Colors.orange),
-                _buildCategoryCard('Đồ uống', Icons.local_drink, Colors.blue),
-                _buildCategoryCard('Ăn vặt', Icons.cookie, Colors.brown),
-                _buildCategoryCard('Món Việt', Icons.ramen_dining, Colors.green),
-              ],
-            ),
-          )
+            child: _query.isEmpty ? _buildCategoryGrid() : _buildEmptyResults(),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? AppTheme.primaryColor : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isSelected ? AppTheme.primaryColor : const Color(0xFFEEEEEE)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? Colors.white : AppTheme.textPrimary,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
+  Widget _buildCategoryGrid() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Explore Categories',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.textPrimary)),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 2.4,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+            ),
+            itemCount: _categories.length,
+            itemBuilder: (context, i) {
+              final cat = _categories[i];
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.dividerColor),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: (cat['color'] as Color).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(cat['icon'] as IconData, color: cat['color'] as Color, size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(cat['label'] as String,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCategoryCard(String title, IconData icon, Color color) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
-      ),
-      child: Row(
+  Widget _buildEmptyResults() {
+    return Center(
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: color),
-          const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Icon(Icons.search_off_rounded, size: 64, color: AppTheme.textSecondary.withOpacity(0.5)),
+          const SizedBox(height: 16),
+          Text('"$_query"', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textPrimary)),
+          const SizedBox(height: 8),
+          const Text('Không tìm thấy kết quả.\nThử từ khóa khác nhé!',
+              textAlign: TextAlign.center, style: TextStyle(color: AppTheme.textSecondary, fontSize: 14, height: 1.6)),
         ],
       ),
     );

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../user_tabs/home_tab.dart';
 import '../user_tabs/search_tab.dart';
 import '../user_tabs/cart_tab.dart';
 import '../user_tabs/profile_tab.dart';
 import '../user_tabs/chatbot_screen.dart';
+import '../user_tabs/notification_screen.dart';
 import '../../theme/app_theme.dart';
+import '../../providers/notification_provider.dart';
 
 class UserHomeScreen extends StatefulWidget {
   const UserHomeScreen({super.key});
@@ -25,8 +28,60 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final notifProvider = Provider.of<NotificationProvider>(context);
+    final unread = notifProvider.unreadCount;
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: const Text('Food Express',
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+                fontSize: 20)),
+        actions: [
+          // 🔔 Chuông thông báo có badge
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined,
+                    color: AppTheme.textPrimary, size: 26),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const NotificationScreen()),
+                ),
+              ),
+              if (unread > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints:
+                        const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      unread > 99 ? '99+' : '$unread',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: IndexedStack(index: _currentIndex, children: _pages),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(

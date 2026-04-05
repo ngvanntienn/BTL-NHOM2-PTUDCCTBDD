@@ -7,6 +7,8 @@ import 'edit_profile_screen.dart';
 import 'order_history_screen.dart';
 import 'favorites_screen.dart';
 import 'voucher_screen.dart';
+import 'address_screen.dart';
+import 'payment_method_screen.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -339,9 +341,11 @@ class _ProfileTabState extends State<ProfileTab> {
               'Mã giảm giá, Voucher của bạn', onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const VoucherScreen()))),
           _menuTile(Icons.location_on_outlined, 'Địa chỉ giao hàng',
-              'Quản lý danh sách địa chỉ', onTap: () {}),
+              'Quản lý danh sách địa chỉ', onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const AddressScreen()))),
           _menuTile(Icons.payment_outlined, 'Phương thức thanh toán',
-              'Thêm & quản lý thẻ ngân hàng', onTap: () {}),
+              'Thêm & quản lý thẻ ngân hàng', onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const PaymentMethodScreen()))),
         ],
       ),
     );

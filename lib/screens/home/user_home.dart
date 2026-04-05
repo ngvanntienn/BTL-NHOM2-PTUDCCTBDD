@@ -36,7 +36,11 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         backgroundColor: AppTheme.primaryColor,
         elevation: 4,
         shape: const CircleBorder(),
-        child: const Icon(Icons.smart_toy_outlined, color: Colors.white, size: 26),
+        child: const Icon(
+          Icons.smart_toy_outlined,
+          color: Colors.white,
+          size: 26,
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
@@ -49,11 +53,26 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _navItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
-            _navItem(1, Icons.search_rounded, Icons.search_outlined, 'Search'),
+            _navItem(0, Icons.home_rounded, Icons.home_outlined, 'Trang chủ'),
+            _navItem(
+              1,
+              Icons.search_rounded,
+              Icons.search_outlined,
+              'Tìm kiếm',
+            ),
             const SizedBox(width: 60), // notch space
-            _navItem(2, Icons.shopping_bag_rounded, Icons.shopping_bag_outlined, 'Cart'),
-            _navItem(3, Icons.person_rounded, Icons.person_outline_rounded, 'Profile'),
+            _navItem(
+              2,
+              Icons.shopping_bag_rounded,
+              Icons.shopping_bag_outlined,
+              'Giỏ hàng',
+            ),
+            _navItem(
+              3,
+              Icons.person_rounded,
+              Icons.person_outline_rounded,
+              'Hồ sơ',
+            ),
           ],
         ),
       ),
@@ -82,7 +101,9 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                color: selected
+                    ? AppTheme.primaryColor
+                    : AppTheme.textSecondary,
               ),
             ),
           ],

@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../models/seller/food_model.dart';
 import '../../models/seller/order_model.dart';
 import '../../repositories/category_repository.dart';
 import '../../repositories/food_repository.dart';
 import '../../repositories/order_repository.dart';
+import '../../services/firestore_schema.dart';
 import '../seller/food_management_screen.dart';
 import '../seller/order_management_screen.dart';
+import '../seller/seller_interview_game_screen.dart';
+import '../seller/seller_ranking_screen.dart';
+import '../login_screen.dart';
 import '../../theme/app_theme.dart';
 
 class SellerHomeScreen extends StatefulWidget {
@@ -46,7 +51,11 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
               if (context.mounted) {
-                Navigator.pop(context);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                  (Route<dynamic> route) => false,
+                );
               }
             },
           ),
@@ -102,60 +111,94 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
                                   BuildContext context,
                                   AsyncSnapshot<List<OrderModel>> orderSnapshot,
                                 ) {
-                                  final List<FoodModel> foods =
-                                      foodSnapshot.data ?? <FoodModel>[];
-                                  final List<OrderModel> orders =
-                                      orderSnapshot.data ?? <OrderModel>[];
+                                  return StreamBuilder<
+                                    DocumentSnapshot<Map<String, dynamic>>
+                                  >(
+                                    stream: FirebaseFirestore.instance
+                                        .collection(FirestoreCollections.users)
+                                        .doc(sellerId)
+                                        .snapshots(),
+                                    builder:
+                                        (
+                                          BuildContext context,
+                                          AsyncSnapshot<
+                                            DocumentSnapshot<
+                                              Map<String, dynamic>
+                                            >
+                                          >
+                                          userSnapshot,
+                                        ) {
+                                          final List<FoodModel> foods =
+                                              foodSnapshot.data ??
+                                              <FoodModel>[];
+                                          final List<OrderModel> orders =
+                                              orderSnapshot.data ??
+                                              <OrderModel>[];
 
-                                  final int availableFoods = foods
-                                      .where(
-                                        (FoodModel e) =>
-                                            e.isAvailable && e.stock > 0,
-                                      )
-                                      .length;
-                                  final int pendingOrders = orders
-                                      .where(
-                                        (OrderModel e) =>
-                                            e.status == OrderStatus.pending,
-                                      )
-                                      .length;
-                                  final double revenue = orders
-                                      .where(
-                                        (OrderModel e) =>
-                                            e.status == OrderStatus.delivered,
-                                      )
-                                      .fold<double>(
-                                        0,
-                                        (double p, OrderModel e) =>
-                                            p + e.totalPrice,
-                                      );
+                                          final int availableFoods = foods
+                                              .where(
+                                                (FoodModel e) =>
+                                                    e.isAvailable &&
+                                                    e.stock > 0,
+                                              )
+                                              .length;
+                                          final int pendingOrders = orders
+                                              .where(
+                                                (OrderModel e) =>
+                                                    e.status ==
+                                                    OrderStatus.pending,
+                                              )
+                                              .length;
+                                          final double orderRevenue = orders
+                                              .where(
+                                                (OrderModel e) =>
+                                                    e.status ==
+                                                    OrderStatus.delivered,
+                                              )
+                                              .fold<double>(
+                                                0,
+                                                (double p, OrderModel e) =>
+                                                    p + e.totalPrice,
+                                              );
 
-                                  return Wrap(
-                                    spacing: 12,
-                                    runSpacing: 12,
-                                    children: [
-                                      _statCard(
-                                        title: 'Tổng món',
-                                        value: '${foods.length}',
-                                        icon: Icons.inventory_2,
-                                      ),
-                                      _statCard(
-                                        title: 'Đang bán',
-                                        value: '$availableFoods',
-                                        icon: Icons.visibility,
-                                      ),
-                                      _statCard(
-                                        title: 'Đơn chờ xử lý',
-                                        value: '$pendingOrders',
-                                        icon: Icons.pending_actions,
-                                      ),
-                                      _statCard(
-                                        title: 'Doanh thu',
-                                        value:
-                                            '${revenue.toStringAsFixed(0)} VND',
-                                        icon: Icons.payments,
-                                      ),
-                                    ],
+                                          final Map<String, dynamic> userData =
+                                              userSnapshot.data?.data() ??
+                                              <String, dynamic>{};
+                                          final double bonusRevenue =
+                                              (userData['bonusRevenue'] as num?)
+                                                  ?.toDouble() ??
+                                              0;
+                                          final double revenue =
+                                              orderRevenue + bonusRevenue;
+
+                                          return Wrap(
+                                            spacing: 12,
+                                            runSpacing: 12,
+                                            children: [
+                                              _statCard(
+                                                title: 'Tổng món',
+                                                value: '${foods.length}',
+                                                icon: Icons.inventory_2,
+                                              ),
+                                              _statCard(
+                                                title: 'Đang bán',
+                                                value: '$availableFoods',
+                                                icon: Icons.visibility,
+                                              ),
+                                              _statCard(
+                                                title: 'Đơn chờ xử lý',
+                                                value: '$pendingOrders',
+                                                icon: Icons.pending_actions,
+                                              ),
+                                              _statCard(
+                                                title: 'Doanh thu',
+                                                value:
+                                                    '${revenue.toStringAsFixed(0)} VND',
+                                                icon: Icons.payments,
+                                              ),
+                                            ],
+                                          );
+                                        },
                                   );
                                 },
                           );
@@ -189,6 +232,38 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
                         context,
                         MaterialPageRoute<void>(
                           builder: (_) => const OrderManagementScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildFeatureCard(
+                    context,
+                    'Game phỏng vấn seller mới',
+                    'Làm bài đánh giá nhanh và lưu kết quả theo thời gian thực',
+                    Icons.quiz_outlined,
+                    Colors.deepOrange,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SellerInterviewGameScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildFeatureCard(
+                    context,
+                    'Xếp hạng seller',
+                    'Xem bảng xếp hạng theo đơn giao, doanh thu, rating và phỏng vấn',
+                    Icons.emoji_events_outlined,
+                    Colors.teal,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SellerRankingScreen(),
                         ),
                       );
                     },

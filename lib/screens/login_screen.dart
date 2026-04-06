@@ -7,6 +7,8 @@ import 'register_screen.dart';
 import 'home/user_home.dart';
 import 'home/seller_home.dart';
 import 'home/admin_home.dart';
+import 'seller/seller_interview_game_screen.dart';
+import '../services/firestore_schema.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,7 +32,9 @@ class _LoginScreenState extends State<LoginScreen> {
     // Admin hardcoded
     if (email == 'admin@gmail.com' && password == 'admin123') {
       Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const AdminHomeScreen()));
+        context,
+        MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
+      );
       return;
     }
 
@@ -52,12 +56,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!userDoc.exists) {
         await FirebaseAuth.instance.signOut();
-        if (mounted) _showSnackBar('Tài khoản không tồn tại trên hệ thống.', isError: true);
+        if (mounted)
+          _showSnackBar(
+            'Tài khoản không tồn tại trên hệ thống.',
+            isError: true,
+          );
         return;
       }
 
       String role = userDoc.get('role') ?? 'user';
-      if (mounted) _navigateByRole(role);
+      if (mounted) {
+        await _navigateByRole(role);
+      }
     } on FirebaseAuthException catch (e) {
       String msg = 'Đăng nhập thất bại!';
       if (e.code == 'user-not-found' ||
@@ -93,13 +103,14 @@ class _LoginScreenState extends State<LoginScreen> {
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCred =
-          await FirebaseAuth.instance.signInWithCredential(credential);
+      final UserCredential userCred = await FirebaseAuth.instance
+          .signInWithCredential(credential);
       final user = userCred.user!;
 
       // Kiểm tra tài khoản đã tồn tại chưa, nếu chưa tạo mới trên Firestore
-      final docRef =
-          FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final docRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid);
       final docSnap = await docRef.get();
 
       if (!docSnap.exists) {
@@ -115,7 +126,9 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
 
-      if (mounted) _navigateByRole('user'); // Google login → luôn vào User Home
+      if (mounted) {
+        await _navigateByRole('user'); // Google login -> always User Home
+      }
     } catch (e) {
       if (mounted) _showSnackBar('Lỗi đăng nhập Google: $e', isError: true);
     } finally {
@@ -123,16 +136,80 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _navigateByRole(String role) {
+  Future<bool> _hasPassedSellerInterview(String sellerId) async {
+    final QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
+        .instance
+        .collection(FirestoreCollections.sellerInterviewAttempts)
+        .where('sellerId', isEqualTo: sellerId)
+        .where('passed', isEqualTo: true)
+        .limit(1)
+        .get();
+
+    return snapshot.docs.isNotEmpty;
+  }
+
+  Future<void> _navigateByRole(String role) async {
+    if (!mounted) {
+      return;
+    }
+
     if (role == 'admin') {
       Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const AdminHomeScreen()));
+        context,
+        MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
+      );
     } else if (role == 'seller') {
+      final String sellerId = FirebaseAuth.instance.currentUser?.uid ?? '';
+      if (sellerId.isEmpty) {
+        _showSnackBar('Không tìm thấy tài khoản seller.', isError: true);
+        return;
+      }
+
+      final bool hasPassed = await _hasPassedSellerInterview(sellerId);
+      if (!mounted) {
+        return;
+      }
+
+      if (hasPassed) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SellerHomeScreen()),
+        );
+        return;
+      }
+
       Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const SellerHomeScreen()));
+        context,
+        MaterialPageRoute(
+          builder: (_) => SellerInterviewGameScreen(
+            requireCompletionBeforeContinue: true,
+            onCompleted: (bool passed) {
+              if (!context.mounted) {
+                return;
+              }
+              if (!passed) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Bạn chưa đạt phỏng vấn. Vui lòng làm lại để vào màn seller.',
+                    ),
+                  ),
+                );
+                return;
+              }
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const SellerHomeScreen()),
+              );
+            },
+          ),
+        ),
+      );
     } else {
       Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const UserHomeScreen()));
+        context,
+        MaterialPageRoute(builder: (_) => const UserHomeScreen()),
+      );
     }
   }
 
@@ -171,30 +248,38 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: AppTheme.primaryColor,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(Icons.fastfood, color: Colors.white, size: 32),
+                    child: const Icon(
+                      Icons.fastfood,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     'FoodExpress',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 36),
 
-              Text('Chào mừng trở lại! 👋',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1C1C1E),
-                      )),
+              Text(
+                'Chào mừng trở lại! 👋',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1C1C1E),
+                ),
+              ),
               const SizedBox(height: 8),
-              Text('Đăng nhập để tiếp tục đặt món yêu thích.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF8E8E93),
-                      )),
+              Text(
+                'Đăng nhập để tiếp tục đặt món yêu thích.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF8E8E93),
+                ),
+              ),
               const SizedBox(height: 40),
 
               // Email Field
@@ -217,11 +302,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   labelText: 'Mật khẩu',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    icon: Icon(_isPasswordVisible
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined),
-                    onPressed: () =>
-                        setState(() => _isPasswordVisible = !_isPasswordVisible),
+                    icon: Icon(
+                      _isPasswordVisible
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    onPressed: () => setState(
+                      () => _isPasswordVisible = !_isPasswordVisible,
+                    ),
                   ),
                 ),
               ),
@@ -230,8 +318,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {},
-                  child: const Text('Quên mật khẩu?',
-                      style: TextStyle(color: AppTheme.primaryColor)),
+                  child: const Text(
+                    'Quên mật khẩu?',
+                    style: TextStyle(color: AppTheme.primaryColor),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -245,18 +335,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   child: _isLoading
                       ? const SizedBox(
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2.5),
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
                         )
-                      : const Text('Đăng nhập',
+                      : const Text(
+                          'Đăng nhập',
                           style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -267,7 +364,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   Expanded(child: Divider(color: Color(0xFFEEEEEE))),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('hoặc', style: TextStyle(color: Color(0xFF8E8E93))),
+                    child: Text(
+                      'hoặc',
+                      style: TextStyle(color: Color(0xFF8E8E93)),
+                    ),
                   ),
                   Expanded(child: Divider(color: Color(0xFFEEEEEE))),
                 ],
@@ -281,16 +381,22 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: OutlinedButton(
                   onPressed: _isGoogleLoading ? null : _handleGoogleSignIn,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFEEEEEE), width: 1.5),
+                    side: const BorderSide(
+                      color: Color(0xFFEEEEEE),
+                      width: 1.5,
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   child: _isGoogleLoading
                       ? const SizedBox(
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(
-                              color: AppTheme.primaryColor, strokeWidth: 2.5),
+                            color: AppTheme.primaryColor,
+                            strokeWidth: 2.5,
+                          ),
                         )
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -333,16 +439,22 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Chưa có tài khoản?',
-                      style: TextStyle(color: Color(0xFF8E8E93))),
+                  const Text(
+                    'Chưa có tài khoản?',
+                    style: TextStyle(color: Color(0xFF8E8E93)),
+                  ),
                   TextButton(
-                    onPressed: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) => const RegisterScreen())),
-                    child: const Text('Tạo tài khoản mới',
-                        style: TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.bold)),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                    ),
+                    child: const Text(
+                      'Tạo tài khoản mới',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),

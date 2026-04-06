@@ -8,7 +8,8 @@ import '../../providers/cart_provider.dart';
 import '../../providers/favorites_provider.dart';
 
 class SearchTab extends StatefulWidget {
-  const SearchTab({super.key});
+  final String? initialCategory;
+  const SearchTab({super.key, this.initialCategory});
 
   @override
   State<SearchTab> createState() => _SearchTabState();
@@ -16,8 +17,14 @@ class SearchTab extends StatefulWidget {
 
 class _SearchTabState extends State<SearchTab> {
   final _controller = TextEditingController();
-  String _selectedCategory = '';
+  late String _selectedCategory;
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = widget.initialCategory ?? '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +82,8 @@ class _SearchTabState extends State<SearchTab> {
                 _buildCategoryChip('Bánh mì'),
                 const SizedBox(width: 8),
                 _buildCategoryChip('Snacks'),
+                const SizedBox(width: 8),
+                _buildCategoryChip('Coffee'),
               ],
             ),
           ),

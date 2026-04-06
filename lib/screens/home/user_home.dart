@@ -18,13 +18,34 @@ class UserHomeScreen extends StatefulWidget {
 
 class _UserHomeScreenState extends State<UserHomeScreen> {
   int _currentIndex = 0;
+  String? _selectedCategory;
 
-  final List<Widget> _pages = const [
-    HomeTab(),
-    SearchTab(),
-    CartTab(),
-    ProfileTab(),
-  ];
+  void _onCategorySelected(String category) {
+    setState(() {
+      _selectedCategory = category == 'Thêm' ? null : category;
+      _currentIndex = 1; // Chuyển sang Tab Search
+    });
+  }
+
+  void _onSeeAll() {
+    setState(() {
+      _selectedCategory = null;
+      _currentIndex = 1; // Chuyển sang Tab Search
+    });
+  }
+
+  List<Widget> get _pages => [
+        HomeTab(
+          onSeeAll: _onSeeAll,
+          onCategorySelected: _onCategorySelected,
+        ),
+        SearchTab(
+          key: ValueKey(_selectedCategory),
+          initialCategory: _selectedCategory,
+        ),
+        const CartTab(),
+        const ProfileTab(),
+      ];
 
   @override
   Widget build(BuildContext context) {

@@ -10,7 +10,10 @@ import '../../providers/notification_provider.dart';
 import 'notification_screen.dart';
 
 class HomeTab extends StatelessWidget {
-  const HomeTab({super.key});
+  final VoidCallback? onSeeAll;
+  final Function(String)? onCategorySelected;
+
+  const HomeTab({super.key, this.onSeeAll, this.onCategorySelected});
 
   @override
   Widget build(BuildContext context) {
@@ -42,20 +45,23 @@ class HomeTab extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     // Search Bar
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppTheme.dividerColor),
-                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.search, color: AppTheme.textSecondary, size: 20),
-                          SizedBox(width: 10),
-                          Text('Tìm món ăn, quán ăn...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
-                        ],
+                    GestureDetector(
+                      onTap: onSeeAll,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppTheme.dividerColor),
+                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.search, color: AppTheme.textSecondary, size: 20),
+                            SizedBox(width: 10),
+                            Text('Tìm món ăn, quán ăn...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -196,8 +202,19 @@ class HomeTab extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.textPrimary)),
-        Text(action, style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(title,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+                color: AppTheme.textPrimary)),
+        GestureDetector(
+          onTap: onSeeAll,
+          child: Text(action,
+              style: const TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13)),
+        ),
       ],
     );
   }
@@ -223,8 +240,13 @@ class HomeTab extends StatelessWidget {
         itemBuilder: (context, i) {
           final cat = cats[i];
           final isMore = cat['label'] == 'Thêm';
+          final label = cat['label'] as String;
           return GestureDetector(
-            onTap: () {},
+            onTap: () {
+              if (onCategorySelected != null) {
+                onCategorySelected!(label);
+              }
+            },
             child: SizedBox(
               width: 54,
               child: Column(

@@ -32,6 +32,30 @@ class OrderRepository {
     });
   }
 
+  static const Map<OrderStatus, Set<OrderStatus>> _allowedTransitions =
+      <OrderStatus, Set<OrderStatus>>{
+        OrderStatus.pending: <OrderStatus>{
+          OrderStatus.accepted,
+          OrderStatus.rejected,
+          OrderStatus.cancelled,
+        },
+        OrderStatus.accepted: <OrderStatus>{
+          OrderStatus.preparing,
+          OrderStatus.rejected,
+        },
+        OrderStatus.preparing: <OrderStatus>{
+          OrderStatus.shipping,
+          OrderStatus.rejected,
+        },
+        OrderStatus.shipping: <OrderStatus>{
+          OrderStatus.delivered,
+          OrderStatus.cancelled,
+        },
+        OrderStatus.delivered: <OrderStatus>{},
+        OrderStatus.rejected: <OrderStatus>{},
+        OrderStatus.cancelled: <OrderStatus>{},
+      };
+
   Future<void> acceptOrder(String orderId) async {
     await _firestore.runTransaction((Transaction tx) async {
       final DocumentReference<Map<String, dynamic>> orderRef = _ref.doc(
@@ -57,6 +81,9 @@ class OrderRepository {
 
       final List<dynamic> rawItems =
           (orderData['items'] as List<dynamic>?) ?? <dynamic>[];
+      if (rawItems.isEmpty) {
+        throw Exception('Don hang khong co san pham.');
+      }
       final Map<String, int> totalQuantityByFoodId = <String, int>{};
 
       for (final dynamic raw in rawItems) {
@@ -71,6 +98,10 @@ class OrderRepository {
         }
         totalQuantityByFoodId[foodId] =
             (totalQuantityByFoodId[foodId] ?? 0) + quantity;
+      }
+
+      if (totalQuantityByFoodId.isEmpty) {
+        throw Exception('Du lieu san pham trong don hang khong hop le.');
       }
 
       for (final MapEntry<String, int> entry in totalQuantityByFoodId.entries) {
@@ -113,23 +144,49 @@ class OrderRepository {
   }
 
   Future<void> rejectOrder(String orderId) {
-    return _setStatus(orderId: orderId, status: OrderStatus.rejected);
+    return _setStatusGuarded(orderId: orderId, status: OrderStatus.rejected);
   }
 
   Future<void> updateOrderStatus({
     required String orderId,
     required OrderStatus status,
   }) {
-    return _setStatus(orderId: orderId, status: status);
+    return _setStatusGuarded(orderId: orderId, status: status);
   }
 
-  Future<void> _setStatus({
+  Future<void> _setStatusGuarded({
     required String orderId,
     required OrderStatus status,
   }) async {
-    await _ref.doc(orderId).update(<String, dynamic>{
-      'status': orderStatusToString(status),
-      'updatedAt': FieldValue.serverTimestamp(),
+    await _firestore.runTransaction((Transaction tx) async {
+      final DocumentReference<Map<String, dynamic>> orderRef = _ref.doc(
+        orderId,
+      );
+      final DocumentSnapshot<Map<String, dynamic>> orderSnap = await tx.get(
+        orderRef,
+      );
+
+      if (!orderSnap.exists) {
+        throw Exception('Don hang khong ton tai.');
+      }
+
+      final Map<String, dynamic> data = orderSnap.data() ?? <String, dynamic>{};
+      final OrderStatus current = orderStatusFromString(
+        (data['status'] ?? 'pending').toString(),
+      );
+
+      final Set<OrderStatus> allowed =
+          _allowedTransitions[current] ?? <OrderStatus>{};
+      if (!allowed.contains(status)) {
+        throw Exception(
+          'Khong the chuyen tu ${orderStatusToString(current)} sang ${orderStatusToString(status)}.',
+        );
+      }
+
+      tx.update(orderRef, <String, dynamic>{
+        'status': orderStatusToString(status),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 }

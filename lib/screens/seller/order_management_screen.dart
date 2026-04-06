@@ -49,6 +49,44 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
     }
   }
 
+  Future<void> _confirmAndRun({
+    required String title,
+    required String message,
+    required String orderId,
+    required Future<void> Function() action,
+    required String successMessage,
+  }) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huy'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Xac nhan'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    await _runOrderAction(
+      orderId: orderId,
+      action: action,
+      successMessage: successMessage,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final String sellerId = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -209,7 +247,10 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
           FilledButton(
             onPressed: isUpdating
                 ? null
-                : () => _runOrderAction(
+                : () => _confirmAndRun(
+                    title: 'Nhan don hang',
+                    message:
+                        'Ban chac chan muon nhan don nay? He thong se tru ton kho theo so luong trong don.',
                     orderId: order.id,
                     action: () => _orderRepository.acceptOrder(order.id),
                     successMessage: 'Da nhan don thanh cong.',
@@ -219,7 +260,9 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
           OutlinedButton(
             onPressed: isUpdating
                 ? null
-                : () => _runOrderAction(
+                : () => _confirmAndRun(
+                    title: 'Tu choi don hang',
+                    message: 'Ban chac chan muon tu choi don nay?',
                     orderId: order.id,
                     action: () => _orderRepository.rejectOrder(order.id),
                     successMessage: 'Da tu choi don.',
@@ -242,6 +285,18 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                   ),
             child: const Text('Đang chuẩn bị'),
           ),
+          OutlinedButton(
+            onPressed: isUpdating
+                ? null
+                : () => _confirmAndRun(
+                    title: 'Tu choi don hang',
+                    message: 'Ban chac chan muon tu choi don nay?',
+                    orderId: order.id,
+                    action: () => _orderRepository.rejectOrder(order.id),
+                    successMessage: 'Da tu choi don.',
+                  ),
+            child: const Text('Từ chối'),
+          ),
         ];
       case OrderStatus.preparing:
         return <Widget>[
@@ -258,6 +313,18 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                   ),
             child: const Text('Đang giao'),
           ),
+          OutlinedButton(
+            onPressed: isUpdating
+                ? null
+                : () => _confirmAndRun(
+                    title: 'Tu choi don hang',
+                    message: 'Ban chac chan muon tu choi don nay?',
+                    orderId: order.id,
+                    action: () => _orderRepository.rejectOrder(order.id),
+                    successMessage: 'Da tu choi don.',
+                  ),
+            child: const Text('Từ chối'),
+          ),
         ];
       case OrderStatus.shipping:
         return <Widget>[
@@ -273,6 +340,21 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                     successMessage: 'Don da giao thanh cong.',
                   ),
             child: const Text('Đã giao'),
+          ),
+          OutlinedButton(
+            onPressed: isUpdating
+                ? null
+                : () => _confirmAndRun(
+                    title: 'Huy don hang',
+                    message: 'Ban chac chan muon huy don dang giao nay?',
+                    orderId: order.id,
+                    action: () => _orderRepository.updateOrderStatus(
+                      orderId: order.id,
+                      status: OrderStatus.cancelled,
+                    ),
+                    successMessage: 'Da huy don.',
+                  ),
+            child: const Text('Hủy đơn'),
           ),
         ];
       case OrderStatus.delivered:

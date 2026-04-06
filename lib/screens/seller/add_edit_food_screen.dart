@@ -35,6 +35,7 @@ class _AddEditFoodScreenState extends State<AddEditFoodScreen> {
   String? _selectedCategoryId;
   bool _isAvailable = true;
   bool _isSaving = false;
+  bool _isSeedingCategories = false;
   String _imageUrl = '';
   XFile? _pickedImage;
 
@@ -55,6 +56,8 @@ class _AddEditFoodScreenState extends State<AddEditFoodScreen> {
     } else {
       _stockController.text = '1';
     }
+
+    _seedDefaultCategoriesIfNeeded();
   }
 
   @override
@@ -95,9 +98,14 @@ class _AddEditFoodScreenState extends State<AddEditFoodScreen> {
     try {
       String finalImageUrl = _imageUrl;
       if (_pickedImage != null) {
-        finalImageUrl = await _imageUploadService.uploadFoodImage(
-          _pickedImage!,
-        );
+        finalImageUrl = await _imageUploadService
+            .uploadFoodImage(_pickedImage!)
+            .timeout(
+              const Duration(seconds: 45),
+              onTimeout: () => throw Exception(
+                'Upload anh qua lau, vui long kiem tra mang va thu lai.',
+              ),
+            );
       }
 
       final int stock = int.parse(_stockController.text.trim());
@@ -125,9 +133,13 @@ class _AddEditFoodScreenState extends State<AddEditFoodScreen> {
       );
 
       if (_isEdit) {
-        await _foodRepository.updateFood(payload);
+        await _foodRepository
+            .updateFood(payload)
+            .timeout(const Duration(seconds: 20));
       } else {
-        await _foodRepository.addFood(payload);
+        await _foodRepository
+            .addFood(payload)
+            .timeout(const Duration(seconds: 20));
       }
 
       if (!mounted) {
@@ -152,6 +164,19 @@ class _AddEditFoodScreenState extends State<AddEditFoodScreen> {
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Future<void> _seedDefaultCategoriesIfNeeded() async {
+    setState(() => _isSeedingCategories = true);
+    try {
+      await _categoryRepository.ensureDefaultCategories();
+    } catch (_) {
+      // StreamBuilder below will show read errors when present.
+    } finally {
+      if (mounted) {
+        setState(() => _isSeedingCategories = false);
       }
     }
   }
@@ -182,6 +207,10 @@ class _AddEditFoodScreenState extends State<AddEditFoodScreen> {
 
               final List<CategoryModel> categories =
                   snapshot.data ?? <CategoryModel>[];
+
+              if (_selectedCategoryId == null && categories.isNotEmpty) {
+                _selectedCategoryId = categories.first.id;
+              }
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -296,23 +325,55 @@ class _AddEditFoodScreenState extends State<AddEditFoodScreen> {
                         },
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: _selectedCategoryId,
-                        decoration: const InputDecoration(
-                          labelText: 'Danh mục',
-                        ),
-                        items: categories
-                            .map(
-                              (CategoryModel c) => DropdownMenuItem<String>(
-                                value: c.id,
-                                child: Text(c.name),
+                      if (categories.isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.dividerColor),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              const Text(
+                                'Chua co danh muc mon an.',
+                                style: TextStyle(fontWeight: FontWeight.w600),
                               ),
-                            )
-                            .toList(),
-                        onChanged: (String? value) {
-                          setState(() => _selectedCategoryId = value);
-                        },
-                      ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: _isSeedingCategories
+                                    ? null
+                                    : _seedDefaultCategoriesIfNeeded,
+                                icon: const Icon(Icons.refresh),
+                                label: Text(
+                                  _isSeedingCategories
+                                      ? 'Dang tao danh muc...'
+                                      : 'Tao danh muc mac dinh',
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        DropdownButtonFormField<String>(
+                          value: _selectedCategoryId,
+                          decoration: const InputDecoration(
+                            labelText: 'Danh mục',
+                          ),
+                          items: categories
+                              .map(
+                                (CategoryModel c) => DropdownMenuItem<String>(
+                                  value: c.id,
+                                  child: Text(c.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (String? value) {
+                            setState(() => _selectedCategoryId = value);
+                          },
+                        ),
                       const SizedBox(height: 12),
                       SwitchListTile.adaptive(
                         value: _isAvailable,

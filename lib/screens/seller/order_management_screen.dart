@@ -15,6 +15,39 @@ class OrderManagementScreen extends StatefulWidget {
 class _OrderManagementScreenState extends State<OrderManagementScreen> {
   final OrderRepository _orderRepository = OrderRepository();
   OrderStatus? _filter;
+  final Set<String> _updatingOrderIds = <String>{};
+
+  Future<void> _runOrderAction({
+    required String orderId,
+    required Future<void> Function() action,
+    required String successMessage,
+  }) async {
+    if (_updatingOrderIds.contains(orderId)) {
+      return;
+    }
+
+    setState(() => _updatingOrderIds.add(orderId));
+    try {
+      await action();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Khong the cap nhat don: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _updatingOrderIds.remove(orderId));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -168,45 +201,77 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
   }
 
   List<Widget> _statusActions(OrderModel order) {
+    final bool isUpdating = _updatingOrderIds.contains(order.id);
+
     switch (order.status) {
       case OrderStatus.pending:
         return <Widget>[
           FilledButton(
-            onPressed: () => _orderRepository.acceptOrder(order.id),
+            onPressed: isUpdating
+                ? null
+                : () => _runOrderAction(
+                    orderId: order.id,
+                    action: () => _orderRepository.acceptOrder(order.id),
+                    successMessage: 'Da nhan don thanh cong.',
+                  ),
             child: const Text('Nhận đơn'),
           ),
           OutlinedButton(
-            onPressed: () => _orderRepository.rejectOrder(order.id),
+            onPressed: isUpdating
+                ? null
+                : () => _runOrderAction(
+                    orderId: order.id,
+                    action: () => _orderRepository.rejectOrder(order.id),
+                    successMessage: 'Da tu choi don.',
+                  ),
             child: const Text('Từ chối'),
           ),
         ];
       case OrderStatus.accepted:
         return <Widget>[
           FilledButton(
-            onPressed: () => _orderRepository.updateOrderStatus(
-              orderId: order.id,
-              status: OrderStatus.preparing,
-            ),
+            onPressed: isUpdating
+                ? null
+                : () => _runOrderAction(
+                    orderId: order.id,
+                    action: () => _orderRepository.updateOrderStatus(
+                      orderId: order.id,
+                      status: OrderStatus.preparing,
+                    ),
+                    successMessage: 'Don dang o trang thai chuan bi.',
+                  ),
             child: const Text('Đang chuẩn bị'),
           ),
         ];
       case OrderStatus.preparing:
         return <Widget>[
           FilledButton(
-            onPressed: () => _orderRepository.updateOrderStatus(
-              orderId: order.id,
-              status: OrderStatus.shipping,
-            ),
+            onPressed: isUpdating
+                ? null
+                : () => _runOrderAction(
+                    orderId: order.id,
+                    action: () => _orderRepository.updateOrderStatus(
+                      orderId: order.id,
+                      status: OrderStatus.shipping,
+                    ),
+                    successMessage: 'Don da chuyen sang dang giao.',
+                  ),
             child: const Text('Đang giao'),
           ),
         ];
       case OrderStatus.shipping:
         return <Widget>[
           FilledButton(
-            onPressed: () => _orderRepository.updateOrderStatus(
-              orderId: order.id,
-              status: OrderStatus.delivered,
-            ),
+            onPressed: isUpdating
+                ? null
+                : () => _runOrderAction(
+                    orderId: order.id,
+                    action: () => _orderRepository.updateOrderStatus(
+                      orderId: order.id,
+                      status: OrderStatus.delivered,
+                    ),
+                    successMessage: 'Don da giao thanh cong.',
+                  ),
             child: const Text('Đã giao'),
           ),
         ];

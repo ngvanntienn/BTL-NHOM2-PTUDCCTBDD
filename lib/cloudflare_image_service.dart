@@ -35,7 +35,7 @@ class CloudflareImageService {
   static bool get isConfigured =>
       _cloudName.trim().isNotEmpty && _uploadPreset.trim().isNotEmpty;
 
-  static Future<CloudflareImageUploadResult> uploadNoteImage({
+  static Future<CloudflareImageUploadResult> uploadFoodImage({
     required Uint8List bytes,
     required String fileName,
     required String mimeType,
@@ -55,7 +55,7 @@ class CloudflareImageService {
       ..fields['upload_preset'] = _uploadPreset
       ..fields['folder'] = _folder
       ..fields['public_id'] =
-          'note_${DateTime.now().millisecondsSinceEpoch}_${fileName.replaceAll(' ', '_')}'
+          'food_${DateTime.now().millisecondsSinceEpoch}_${fileName.replaceAll(' ', '_')}'
       ..files.add(
         http.MultipartFile.fromBytes(
           'file',
@@ -89,6 +89,18 @@ class CloudflareImageService {
     }
 
     return CloudflareImageUploadResult(id: id, url: url);
+  }
+
+  static Future<CloudflareImageUploadResult> uploadNoteImage({
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+  }) {
+    return uploadFoodImage(
+      bytes: bytes,
+      fileName: fileName,
+      mimeType: mimeType,
+    );
   }
 
   static MediaType _parseMediaType(String mimeType) {

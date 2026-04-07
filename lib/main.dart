@@ -33,6 +33,8 @@ void main() async {
       child: const MainApp(),
     ),
   );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(const MainApp());
 }
 
 class MainApp extends StatefulWidget {

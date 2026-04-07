@@ -10,6 +10,17 @@ Ung dung Flutter/Firebase cho bai tap lon mon PTUDCCTBDD.
 - Trinh duyet Chrome (neu chay web)
 - Tai khoan Firebase (neu muon cau hinh project rieng)
 
+Luu y Windows (bat buoc voi project co plugin):
+
+- Bat Developer Mode de Flutter tao symbolic links khi `flutter pub get`.
+- Mo nhanh Settings bang lenh:
+
+```powershell
+start ms-settings:developers
+```
+
+- Sau do bat `Developer Mode` roi chay lai `flutter pub get`.
+
 Kiem tra moi truong:
 
 ```bash
@@ -24,6 +35,9 @@ cd BTL-NHOM2-PTUDCCTBDD
 flutter pub get
 flutter run
 ```
+
+Neu `flutter pub get` bao loi `Building with plugins requires symlink support`,
+hay bat `Developer Mode` nhu huong dan tren roi chay lai.
 
 ## Cau hinh Firebase
 

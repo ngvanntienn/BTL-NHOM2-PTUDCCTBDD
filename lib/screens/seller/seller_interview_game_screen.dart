@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../login_screen.dart';
 import '../../services/firestore_schema.dart';
 import '../../theme/app_theme.dart';
 
@@ -12,10 +13,12 @@ class SellerInterviewGameScreen extends StatefulWidget {
     super.key,
     this.requireCompletionBeforeContinue = false,
     this.onCompleted,
+    this.onExit,
   });
 
   final bool requireCompletionBeforeContinue;
   final ValueChanged<bool>? onCompleted;
+  final VoidCallback? onExit;
 
   @override
   State<SellerInterviewGameScreen> createState() =>
@@ -116,6 +119,28 @@ class _SellerInterviewGameScreenState extends State<SellerInterviewGameScreen> {
       _isFinished = false;
       _selectedOptionByQuestionId.clear();
     });
+  }
+
+  Future<void> _exitInterview() async {
+    if (!mounted) {
+      return;
+    }
+
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) {
+      return;
+    }
+
+    if (widget.onExit != null) {
+      widget.onExit!.call();
+      return;
+    }
+
+    final NavigatorState navigator = Navigator.of(context);
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      (Route<dynamic> route) => false,
+    );
   }
 
   @override
@@ -307,13 +332,22 @@ class _SellerInterviewGameScreenState extends State<SellerInterviewGameScreen> {
             style: const TextStyle(color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _restart,
-              icon: const Icon(Icons.replay),
-              label: const Text('Làm lại bài phỏng vấn'),
-            ),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _restart,
+                  icon: const Icon(Icons.replay),
+                  label: const Text('Làm lại bài phỏng vấn'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                onPressed: _exitInterview,
+                icon: const Icon(Icons.close),
+                label: const Text('Thoát'),
+              ),
+            ],
           ),
         ],
       ),

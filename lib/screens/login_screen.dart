@@ -159,6 +159,8 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
       );
     } else if (role == 'seller') {
+      final NavigatorState navigator = Navigator.of(context);
+      final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
       final String sellerId = FirebaseAuth.instance.currentUser?.uid ?? '';
       if (sellerId.isEmpty) {
         _showSnackBar('Không tìm thấy tài khoản seller.', isError: true);
@@ -184,11 +186,11 @@ class _LoginScreenState extends State<LoginScreen> {
           builder: (_) => SellerInterviewGameScreen(
             requireCompletionBeforeContinue: true,
             onCompleted: (bool passed) {
-              if (!context.mounted) {
+              if (!navigator.mounted) {
                 return;
               }
               if (!passed) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(
                     content: Text(
                       'Bạn chưa đạt phỏng vấn. Vui lòng làm lại để vào màn seller.',
@@ -197,9 +199,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 );
                 return;
               }
-              Navigator.pushReplacement(
-                context,
+              navigator.pushReplacement(
                 MaterialPageRoute(builder: (_) => const SellerHomeScreen()),
+              );
+            },
+            onExit: () {
+              if (!navigator.mounted) {
+                return;
+              }
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                (Route<dynamic> route) => false,
               );
             },
           ),

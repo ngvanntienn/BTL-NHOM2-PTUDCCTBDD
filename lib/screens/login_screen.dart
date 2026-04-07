@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../app_routes.dart';
 import '../theme/app_theme.dart';
-import 'register_screen.dart';
-import 'home/user_home.dart';
-import 'home/seller_home.dart';
-import 'home/admin_home.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,8 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Admin hardcoded
     if (email == 'admin@gmail.com' && password == 'admin123') {
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const AdminHomeScreen()));
+      Navigator.pushReplacementNamed(context, AppRoutes.adminHome);
       return;
     }
 
@@ -77,25 +74,33 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isGoogleLoading = true);
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn();
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      if (googleUser == null) {
-        // Người dùng bấm huỷ
-        setState(() => _isGoogleLoading = false);
-        return;
+      UserCredential userCred;
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider()
+          ..setCustomParameters({'prompt': 'select_account'});
+        userCred = await FirebaseAuth.instance.signInWithPopup(provider);
+      } else {
+        final GoogleSignIn googleSignIn = GoogleSignIn();
+        final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+        if (googleUser == null) {
+          return;
+        }
+
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
+
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        userCred = await FirebaseAuth.instance.signInWithCredential(credential);
       }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final UserCredential userCred =
-          await FirebaseAuth.instance.signInWithCredential(credential);
-      final user = userCred.user!;
+      final user = userCred.user;
+      if (user == null) {
+        throw Exception('Không lấy được thông tin tài khoản Google.');
+      }
 
       // Kiểm tra tài khoản đã tồn tại chưa, nếu chưa tạo mới trên Firestore
       final docRef =
@@ -125,14 +130,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _navigateByRole(String role) {
     if (role == 'admin') {
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const AdminHomeScreen()));
+      Navigator.pushReplacementNamed(context, AppRoutes.adminHome);
     } else if (role == 'seller') {
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const SellerHomeScreen()));
+      Navigator.pushReplacementNamed(context, AppRoutes.sellerHome);
     } else {
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const UserHomeScreen()));
+      Navigator.pushReplacementNamed(context, AppRoutes.userHome);
     }
   }
 
@@ -336,9 +338,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Text('Chưa có tài khoản?',
                       style: TextStyle(color: Color(0xFF8E8E93))),
                   TextButton(
-                    onPressed: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) => const RegisterScreen())),
+                    onPressed: () => Navigator.pushNamed(context, AppRoutes.register),
                     child: const Text('Tạo tài khoản mới',
                         style: TextStyle(
                             color: AppTheme.primaryColor,

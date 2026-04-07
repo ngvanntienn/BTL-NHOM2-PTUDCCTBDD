@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../app_routes.dart';
 import '../user_tabs/home_tab.dart';
 import '../user_tabs/search_tab.dart';
 import '../user_tabs/cart_tab.dart';
 import '../user_tabs/profile_tab.dart';
-import '../user_tabs/chatbot_screen.dart';
 import '../../theme/app_theme.dart';
 
 class UserHomeScreen extends StatefulWidget {
@@ -29,10 +29,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
       backgroundColor: AppTheme.backgroundColor,
       body: IndexedStack(index: _currentIndex, children: _pages),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ChatbotScreen()),
-        ),
+        onPressed: () => Navigator.pushNamed(context, AppRoutes.chatbot),
         backgroundColor: AppTheme.primaryColor,
         elevation: 4,
         shape: const CircleBorder(),

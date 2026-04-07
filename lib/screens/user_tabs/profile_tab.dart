@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../app_routes.dart';
 import '../../theme/app_theme.dart';
-import '../login_screen.dart';
-import 'edit_profile_screen.dart';
-import 'order_history_screen.dart';
-import 'favorites_screen.dart';
-import 'voucher_screen.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -65,8 +61,7 @@ class _ProfileTabState extends State<ProfileTab> {
     if (ok == true) {
       await _auth.signOut();
       if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context, MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
+        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (_) => false);
       }
     }
   }
@@ -210,9 +205,10 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 
   void _goEditProfile() async {
-    final updated = await Navigator.push<bool>(
+    final updated = await Navigator.pushNamed<bool>(
       context,
-      MaterialPageRoute(builder: (_) => EditProfileScreen(userData: _userData ?? {})),
+      AppRoutes.editProfile,
+      arguments: EditProfileRouteArgs(userData: _userData ?? {}),
     );
     if (updated == true) _loadUser();
   }
@@ -232,8 +228,11 @@ class _ProfileTabState extends State<ProfileTab> {
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13,
                       letterSpacing: 1, color: AppTheme.textSecondary)),
               TextButton(
-                onPressed: () => Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => const OrderHistoryScreen())),
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.orderHistory,
+                  arguments: const OrderHistoryRouteArgs(initialFilter: 'all'),
+                ),
                 child: const Text('Xem tất cả >',
                     style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
               ),
@@ -283,8 +282,11 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 
   void _goOrders(String filter) {
-    Navigator.push(context,
-        MaterialPageRoute(builder: (_) => OrderHistoryScreen(initialFilter: filter)));
+    Navigator.pushNamed(
+      context,
+      AppRoutes.orderHistory,
+      arguments: OrderHistoryRouteArgs(initialFilter: filter),
+    );
   }
 
   Widget _orderIcon(IconData icon, String label, int count, {VoidCallback? onTap}) {
@@ -333,11 +335,9 @@ class _ProfileTabState extends State<ProfileTab> {
       child: Column(
         children: [
           _menuTile(Icons.favorite_border_rounded, 'Món ăn yêu thích',
-              'Quán ăn & món đã thả tim', onTap: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => const FavoritesScreen()))),
+            'Quán ăn & món đã thả tim', onTap: () => Navigator.pushNamed(context, AppRoutes.favorites)),
           _menuTile(Icons.account_balance_wallet_outlined, 'Ví & Khuyến mãi',
-              'Mã giảm giá, Voucher của bạn', onTap: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => const VoucherScreen()))),
+            'Mã giảm giá, Voucher của bạn', onTap: () => Navigator.pushNamed(context, AppRoutes.voucher)),
           _menuTile(Icons.location_on_outlined, 'Địa chỉ giao hàng',
               'Quản lý danh sách địa chỉ', onTap: () {}),
           _menuTile(Icons.payment_outlined, 'Phương thức thanh toán',

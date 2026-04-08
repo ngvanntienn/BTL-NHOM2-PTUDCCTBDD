@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../app_routes.dart';
 import '../../theme/app_theme.dart';
 import '../login_screen.dart';
+import '../seller/seller_panel.dart';
 import 'edit_profile_screen.dart';
 import 'order_history_screen.dart';
 import 'favorites_screen.dart';
@@ -20,7 +21,7 @@ class ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<ProfileTab> {
   final _auth = FirebaseAuth.instance;
-  final _db   = FirebaseFirestore.instance;
+  final _db = FirebaseFirestore.instance;
 
   bool _notifEnabled = true;
   Map<String, dynamic>? _userData;
@@ -49,16 +50,26 @@ class _ProfileTabState extends State<ProfileTab> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Xác nhận đăng xuất', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Xác nhận đăng xuất',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: const Text('Bạn có chắc muốn đăng xuất không?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
-              child: const Text('Huỷ', style: TextStyle(color: AppTheme.textSecondary))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Huỷ',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: Colors.redAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: const Text('Đăng xuất'),
           ),
@@ -68,6 +79,11 @@ class _ProfileTabState extends State<ProfileTab> {
     if (ok == true) {
       await _auth.signOut();
       if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (_) => false,
+        );
         Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (_) => false);
       }
     }
@@ -91,11 +107,13 @@ class _ProfileTabState extends State<ProfileTab> {
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {},
-          )
+          ),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryColor),
+            )
           : RefreshIndicator(
               color: AppTheme.primaryColor,
               onRefresh: _loadUser,
@@ -105,6 +123,10 @@ class _ProfileTabState extends State<ProfileTab> {
                   children: [
                     _buildProfileHeader(),
                     const SizedBox(height: 8),
+                    if (_userData?['role'] == 'seller') ...[
+                      _buildSellerSection(),
+                      const SizedBox(height: 8),
+                    ],
                     _buildOrdersSection(),
                     const SizedBox(height: 8),
                     _buildUtilitiesSection(),
@@ -122,9 +144,9 @@ class _ProfileTabState extends State<ProfileTab> {
 
   // ── Profile Header ───────────────────────────────────────────────────
   Widget _buildProfileHeader() {
-    final name   = _userData?['name'] ?? 'Chưa cập nhật';
-    final email  = _userData?['email'] ?? _auth.currentUser?.email ?? '';
-    final phone  = _userData?['phone'];
+    final name = _userData?['name'] ?? 'Chưa cập nhật';
+    final email = _userData?['email'] ?? _auth.currentUser?.email ?? '';
+    final phone = _userData?['phone'];
 
     return Container(
       color: Colors.white,
@@ -139,18 +161,21 @@ class _ProfileTabState extends State<ProfileTab> {
                   CircleAvatar(
                     radius: 38,
                     backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                    backgroundImage: (_userData?['avatar'] != null &&
+                    backgroundImage:
+                        (_userData?['avatar'] != null &&
                             (_userData!['avatar'] as String).isNotEmpty)
                         ? NetworkImage(_userData!['avatar'] as String)
                         : null,
-                    child: (_userData?['avatar'] == null ||
+                    child:
+                        (_userData?['avatar'] == null ||
                             (_userData!['avatar'] as String).isEmpty)
                         ? Text(
                             name[0].toUpperCase(),
                             style: const TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryColor),
+                              fontSize: 30,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
                           )
                         : null,
                   ),
@@ -166,7 +191,11 @@ class _ProfileTabState extends State<ProfileTab> {
                           color: AppTheme.primaryColor,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.edit, color: Colors.white, size: 14),
+                        child: const Icon(
+                          Icons.edit,
+                          color: Colors.white,
+                          size: 14,
+                        ),
                       ),
                     ),
                   ),
@@ -177,18 +206,39 @@ class _ProfileTabState extends State<ProfileTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${_greeting()}, 👋',
-                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                    Text(
+                      '${_greeting()}, 👋',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(name,
-                        style: const TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(email, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                    Text(
+                      email,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
                     if (phone != null && (phone as String).isNotEmpty) ...[
                       const SizedBox(height: 2),
-                      Text(phone as String,
-                          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                      Text(
+                        phone,
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -203,7 +253,9 @@ class _ProfileTabState extends State<ProfileTab> {
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 40),
               side: const BorderSide(color: AppTheme.primaryColor),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ],
@@ -214,10 +266,98 @@ class _ProfileTabState extends State<ProfileTab> {
   void _goEditProfile() async {
     final updated = await Navigator.pushNamed<bool>(
       context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(userData: _userData ?? {}),
+      ),
       AppRoutes.editProfile,
       arguments: EditProfileRouteArgs(userData: _userData ?? {}),
     );
     if (updated == true) _loadUser();
+  }
+
+  // ── Seller Panel Section ─────────────────────────────────────────────
+  Widget _buildSellerSection() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Quản lý cửa hàng',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.primaryColor),
+              color: AppTheme.primaryColor.withOpacity(0.05),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SellerPanel()),
+                ),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.store_outlined,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Seller Panel',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Quản lý voucher, đơn hàng & cửa hàng',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Orders Section ───────────────────────────────────────────────────
@@ -231,10 +371,28 @@ class _ProfileTabState extends State<ProfileTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('MY ORDERS',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13,
-                      letterSpacing: 1, color: AppTheme.textSecondary)),
+              const Text(
+                'MY ORDERS',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: 1,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
               TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
+                ),
+                child: const Text(
+                  'Xem tất cả >',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
                 onPressed: () => Navigator.pushNamed(
                   context,
                   AppRoutes.orderHistory,
@@ -254,17 +412,45 @@ class _ProfileTabState extends State<ProfileTab> {
                 .snapshots(),
             builder: (context, snap) {
               final orders = snap.data?.docs ?? [];
-              int pending   = orders.where((o) => (o.data() as Map)['status'] == 'pending').length;
-              int delivering = orders.where((o) => (o.data() as Map)['status'] == 'delivering').length;
-              int completed  = orders.where((o) => (o.data() as Map)['status'] == 'completed').length;
-              int cancelled  = orders.where((o) => (o.data() as Map)['status'] == 'cancelled').length;
+              int pending = orders
+                  .where((o) => (o.data() as Map)['status'] == 'pending')
+                  .length;
+              int delivering = orders
+                  .where((o) => (o.data() as Map)['status'] == 'delivering')
+                  .length;
+              int completed = orders
+                  .where((o) => (o.data() as Map)['status'] == 'completed')
+                  .length;
+              int cancelled = orders
+                  .where((o) => (o.data() as Map)['status'] == 'cancelled')
+                  .length;
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _orderIcon(Icons.pending_outlined,      'Chờ xác nhận', pending,    onTap: () => _goOrders('pending')),
-                  _orderIcon(Icons.delivery_dining,       'Đang giao',    delivering,  onTap: () => _goOrders('delivering')),
-                  _orderIcon(Icons.check_circle_outline,  'Thành công',   completed,  onTap: () => _goOrders('completed')),
-                  _orderIcon(Icons.cancel_outlined,       'Đã hủy',       cancelled,  onTap: () => _goOrders('cancelled')),
+                  _orderIcon(
+                    Icons.pending_outlined,
+                    'Chờ xác nhận',
+                    pending,
+                    onTap: () => _goOrders('pending'),
+                  ),
+                  _orderIcon(
+                    Icons.delivery_dining,
+                    'Đang giao',
+                    delivering,
+                    onTap: () => _goOrders('delivering'),
+                  ),
+                  _orderIcon(
+                    Icons.check_circle_outline,
+                    'Thành công',
+                    completed,
+                    onTap: () => _goOrders('completed'),
+                  ),
+                  _orderIcon(
+                    Icons.cancel_outlined,
+                    'Đã hủy',
+                    cancelled,
+                    onTap: () => _goOrders('cancelled'),
+                  ),
                 ],
               );
             },
@@ -274,12 +460,25 @@ class _ProfileTabState extends State<ProfileTab> {
             onTap: () => _goOrders('completed'),
             child: Row(
               children: const [
-                Icon(Icons.refresh_rounded, color: AppTheme.primaryColor, size: 20),
+                Icon(
+                  Icons.refresh_rounded,
+                  color: AppTheme.primaryColor,
+                  size: 20,
+                ),
                 SizedBox(width: 10),
-                Text('Đặt lại đơn gần nhất',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                Text(
+                  'Đặt lại đơn gần nhất',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
                 Spacer(),
-                Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textSecondary),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: AppTheme.textSecondary,
+                ),
               ],
             ),
           ),
@@ -289,6 +488,11 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 
   void _goOrders(String filter) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrderHistoryScreen(initialFilter: filter),
+      ),
     Navigator.pushNamed(
       context,
       AppRoutes.orderHistory,
@@ -296,7 +500,12 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  Widget _orderIcon(IconData icon, String label, int count, {VoidCallback? onTap}) {
+  Widget _orderIcon(
+    IconData icon,
+    String label,
+    int count, {
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -314,21 +523,36 @@ class _ProfileTabState extends State<ProfileTab> {
               ),
               if (count > 0)
                 Positioned(
-                  top: -4, right: -4,
+                  top: -4,
+                  right: -4,
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(
-                      color: AppTheme.primaryColor, shape: BoxShape.circle),
-                    child: Text('$count',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      color: AppTheme.primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(label,
-              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
-              textAlign: TextAlign.center),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -341,6 +565,36 @@ class _ProfileTabState extends State<ProfileTab> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         children: [
+          _menuTile(
+            Icons.favorite_border_rounded,
+            'Món ăn yêu thích',
+            'Quán ăn & món đã thả tim',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+            ),
+          ),
+          _menuTile(
+            Icons.account_balance_wallet_outlined,
+            'Ví & Khuyến mãi',
+            'Mã giảm giá, Voucher của bạn',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const VoucherScreen()),
+            ),
+          ),
+          _menuTile(
+            Icons.location_on_outlined,
+            'Địa chỉ giao hàng',
+            'Quản lý danh sách địa chỉ',
+            onTap: () {},
+          ),
+          _menuTile(
+            Icons.payment_outlined,
+            'Phương thức thanh toán',
+            'Thêm & quản lý thẻ ngân hàng',
+            onTap: () {},
+          ),
           _menuTile(Icons.favorite_border_rounded, 'Món ăn yêu thích',
             'Quán ăn & món đã thả tim', onTap: () => Navigator.pushNamed(context, AppRoutes.favorites)),
           _menuTile(Icons.account_balance_wallet_outlined, 'Ví & Khuyến mãi',
@@ -371,20 +625,36 @@ class _ProfileTabState extends State<ProfileTab> {
                 color: AppTheme.primaryColor.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.notifications_active_outlined, color: AppTheme.primaryColor, size: 20),
+              child: const Icon(
+                Icons.notifications_active_outlined,
+                color: AppTheme.primaryColor,
+                size: 20,
+              ),
             ),
-            title: const Text('Thông báo',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
-            subtitle: const Text('Bật/tắt chuông & khuyến mãi',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            title: const Text(
+              'Thông báo',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            subtitle: const Text(
+              'Bật/tắt chuông & khuyến mãi',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
             trailing: Switch(
               value: _notifEnabled,
               activeColor: AppTheme.primaryColor,
               onChanged: (v) => setState(() => _notifEnabled = v),
             ),
           ),
-          _menuTile(Icons.headset_mic_outlined, 'Trợ giúp & CSKH',
-              'Liên hệ báo cáo sự cố', onTap: () => _showHelpDialog()),
+          _menuTile(
+            Icons.headset_mic_outlined,
+            'Trợ giúp & CSKH',
+            'Liên hệ báo cáo sự cố',
+            onTap: () => _showHelpDialog(),
+          ),
         ],
       ),
     );
@@ -395,7 +665,10 @@ class _ProfileTabState extends State<ProfileTab> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Trung tâm hỗ trợ', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Trung tâm hỗ trợ',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: const [
@@ -413,8 +686,12 @@ class _ProfileTabState extends State<ProfileTab> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng', style: TextStyle(color: AppTheme.primaryColor))),
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Đóng',
+              style: TextStyle(color: AppTheme.primaryColor),
+            ),
+          ),
         ],
       ),
     );
@@ -429,18 +706,31 @@ class _ProfileTabState extends State<ProfileTab> {
         child: OutlinedButton.icon(
           onPressed: _logout,
           icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-          label: const Text('Đăng xuất',
-              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+          label: const Text(
+            'Đăng xuất',
+            style: TextStyle(
+              color: Colors.redAccent,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: Colors.redAccent, width: 1.5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _menuTile(IconData icon, String title, String sub, {VoidCallback? onTap}) {
+  Widget _menuTile(
+    IconData icon,
+    String title,
+    String sub, {
+    VoidCallback? onTap,
+  }) {
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
@@ -450,9 +740,23 @@ class _ProfileTabState extends State<ProfileTab> {
         ),
         child: Icon(icon, color: AppTheme.primaryColor, size: 20),
       ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
-      subtitle: Text(sub, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textSecondary),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+          color: AppTheme.textPrimary,
+        ),
+      ),
+      subtitle: Text(
+        sub,
+        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+      ),
+      trailing: const Icon(
+        Icons.arrow_forward_ios_rounded,
+        size: 14,
+        color: AppTheme.textSecondary,
+      ),
       onTap: onTap,
     );
   }

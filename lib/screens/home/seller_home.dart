@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../seller/seller_panel.dart';
+=======
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -35,6 +37,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return const SellerPanel();
     final String sellerId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(

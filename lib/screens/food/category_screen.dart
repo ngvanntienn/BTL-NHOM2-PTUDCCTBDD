@@ -6,9 +6,14 @@ import '../../models/food_model.dart';
 import '../../theme/app_theme.dart';
 
 class CategoryScreen extends StatefulWidget {
-  const CategoryScreen({super.key, this.initialCategory});
+  const CategoryScreen({
+    super.key,
+    this.initialCategory,
+    this.onlyTrending = false,
+  });
 
   final String? initialCategory;
+  final bool onlyTrending;
 
   @override
   State<CategoryScreen> createState() => _CategoryScreenState();
@@ -31,7 +36,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: const Text('Danh mục món ăn'),
+        title: Text(widget.onlyTrending ? 'Món đang thịnh hành' : 'Danh mục món ăn'),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance
@@ -45,13 +50,19 @@ class _CategoryScreenState extends State<CategoryScreen> {
             );
           }
 
-          final List<FoodModel> foods = snapshot.data?.docs
+          final List<FoodModel> allFoods = snapshot.data?.docs
                   .map(FoodModel.fromDoc)
                   .toList() ??
               <FoodModel>[];
+            final List<FoodModel> trendingFoods = allFoods
+              .where((food) => food.isTrending)
+              .toList();
+            final List<FoodModel> foods = widget.onlyTrending
+              ? (trendingFoods.isEmpty ? allFoods : trendingFoods)
+              : allFoods;
 
           if (foods.isEmpty) {
-            return const _EmptyFoodsState();
+            return _EmptyFoodsState(onlyTrending: widget.onlyTrending);
           }
 
           final Set<String> categorySet = foods
@@ -228,29 +239,33 @@ class _FoodListTile extends StatelessWidget {
 }
 
 class _EmptyFoodsState extends StatelessWidget {
-  const _EmptyFoodsState();
+  const _EmptyFoodsState({required this.onlyTrending});
+
+  final bool onlyTrending;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const <Widget>[
-          Icon(Icons.no_food_rounded, size: 68, color: AppTheme.textSecondary),
-          SizedBox(height: 12),
+        children: <Widget>[
+          const Icon(Icons.no_food_rounded, size: 68, color: AppTheme.textSecondary),
+          const SizedBox(height: 12),
           Text(
-            'Chưa có dữ liệu món ăn',
-            style: TextStyle(
+            onlyTrending ? 'Chưa có món thịnh hành' : 'Chưa có dữ liệu món ăn',
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimary,
             ),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
-            'Hãy thêm document trong collection foods trên Firestore.',
+            onlyTrending
+                ? 'Hãy đánh dấu isTrending=true cho món trên Firestore.'
+                : 'Hãy thêm document trong collection foods trên Firestore.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppTheme.textSecondary),
+            style: const TextStyle(color: AppTheme.textSecondary),
           ),
         ],
       ),

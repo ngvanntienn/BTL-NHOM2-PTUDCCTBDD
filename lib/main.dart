@@ -50,7 +50,10 @@ class MainApp extends StatelessWidget {
         if (settings.name == AppRoutes.category) {
           final args = settings.arguments as CategoryRouteArgs?;
           return MaterialPageRoute(
-            builder: (_) => CategoryScreen(initialCategory: args?.initialCategory),
+            builder: (_) => CategoryScreen(
+              initialCategory: args?.initialCategory,
+              onlyTrending: args?.onlyTrending ?? false,
+            ),
           );
         }
 

@@ -15,9 +15,10 @@ class AppRoutes {
 }
 
 class CategoryRouteArgs {
-  const CategoryRouteArgs({this.initialCategory});
+  const CategoryRouteArgs({this.initialCategory, this.onlyTrending = false});
 
   final String? initialCategory;
+  final bool onlyTrending;
 }
 
 class FoodDetailRouteArgs {

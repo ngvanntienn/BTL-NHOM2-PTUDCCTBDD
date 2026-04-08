@@ -123,7 +123,16 @@ class HomeTab extends StatelessWidget {
                     const SizedBox(height: 28),
 
                     // Trending
-                    _sectionHeader(context, 'Món đang thịnh hành', 'Xem tất cả'),
+                    _sectionHeader(
+                      context,
+                      'Món đang thịnh hành',
+                      'Xem tất cả',
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.category,
+                        arguments: const CategoryRouteArgs(onlyTrending: true),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     _buildTrendingRow(context),
                   ],

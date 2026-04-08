@@ -8,6 +8,7 @@ class UserModel {
   final String phone;
   final String address;
   final DateTime createdAt;
+  final bool isDisabled;
 
   UserModel({
     required this.userId,
@@ -17,6 +18,7 @@ class UserModel {
     required this.phone,
     required this.address,
     required this.createdAt,
+    this.isDisabled = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -28,6 +30,7 @@ class UserModel {
       'phone': phone,
       'address': address,
       'createdAt': Timestamp.fromDate(createdAt),
+      'isDisabled': isDisabled,
     };
   }
 
@@ -40,6 +43,29 @@ class UserModel {
       phone: map['phone'] ?? '',
       address: map['address'] ?? '',
       createdAt: (map['createdAt'] as Timestamp).toDate(),
+      isDisabled: map['isDisabled'] ?? false,
+    );
+  }
+
+  UserModel copyWith({
+    String? userId,
+    String? name,
+    String? email,
+    String? role,
+    String? phone,
+    String? address,
+    DateTime? createdAt,
+    bool? isDisabled,
+  }) {
+    return UserModel(
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      phone: phone ?? this.phone,
+      address: address ?? this.address,
+      createdAt: createdAt ?? this.createdAt,
+      isDisabled: isDisabled ?? this.isDisabled,
     );
   }
 }

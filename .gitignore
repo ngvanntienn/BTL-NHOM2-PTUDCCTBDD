@@ -43,7 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+*.md
+!README.md
 
+export_firestore_to_json.dart
 # Local machine / generated platform configs
 android/local.properties
 android/key.properties

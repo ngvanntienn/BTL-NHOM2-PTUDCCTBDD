@@ -67,6 +67,13 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      bool isDisabled = userDoc.get('isDisabled') ?? false;
+      if (isDisabled) {
+        await FirebaseAuth.instance.signOut();
+        if (mounted) _showSnackBar('Tài khoản của bạn đã bị khóa. Liên hệ hỗ trợ để biết thêm chi tiết.', isError: true);
+        return;
+      }
+
       String role = userDoc.get('role') ?? 'user';
       if (mounted) {
         await _navigateByRole(role);
@@ -137,7 +144,18 @@ class _LoginScreenState extends State<LoginScreen> {
           'address': '',
           'createdAt': FieldValue.serverTimestamp(),
           'avatar': user.photoURL ?? '',
+          'isDisabled': false,
         });
+      } else {
+        // Kiểm tra tài khoản có bị khóa không
+        bool isDisabled = docSnap.get('isDisabled') ?? false;
+        if (isDisabled) {
+          await GoogleSignIn().signOut();
+          await FirebaseAuth.instance.signOut();
+          if (mounted) _showSnackBar('Tài khoản của bạn đã bị khóa. Liên hệ hỗ trợ để biết thêm chi tiết.', isError: true);
+          if (mounted) setState(() => _isGoogleLoading = false);
+          return;
+        }
       }
 
       if (mounted) {

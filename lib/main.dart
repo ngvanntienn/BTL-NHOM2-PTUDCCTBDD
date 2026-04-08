@@ -19,13 +19,14 @@ import 'screens/food/category_screen.dart';
 import 'screens/food/food_detail_screen.dart';
 import 'theme/app_theme.dart';
 import 'firebase_options.dart';
+import 'providers/user_provider.dart';
+import 'providers/category_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/favorites_provider.dart';
 import 'providers/address_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/voucher_provider.dart';
 import 'utils/notification_service.dart';
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -111,6 +112,17 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => CategoryProvider()),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Antigravity Store',
+        theme: AppTheme.lightTheme,
+        home: const SplashScreen(),
+      ),
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Food Delivery App',

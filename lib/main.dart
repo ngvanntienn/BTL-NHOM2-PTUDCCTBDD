@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 import 'firebase_options.dart';
+import 'providers/user_provider.dart';
+import 'providers/category_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,11 +20,17 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Antigravity Store',
-      theme: AppTheme.lightTheme,
-      home: const SplashScreen(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => CategoryProvider()),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Antigravity Store',
+        theme: AppTheme.lightTheme,
+        home: const SplashScreen(),
+      ),
     );
   }
 }

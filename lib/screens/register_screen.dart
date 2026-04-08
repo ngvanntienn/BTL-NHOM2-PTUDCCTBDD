@@ -49,6 +49,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phone: _phoneController.text.trim(),
         address: _addressController.text.trim(),
         createdAt: DateTime.now(),
+        isDisabled: false,
       );
 
       await FirebaseFirestore.instance

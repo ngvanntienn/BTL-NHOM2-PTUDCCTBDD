@@ -19,18 +19,62 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
 
   Future<Map<String, dynamic>> _loadStatistics() async {
     try {
-      final totalUsers = await _userService.getUserCount();
-      final activeUsers = await _userService.getActiveUsersCount();
-      final totalOrders = await _orderService.getOrderCount();
-      final pendingOrders = await _orderService.getPendingOrderCount();
-      final totalRevenue = await _orderService.getTotalRevenue();
-      final categoryCount = await _categoryService.getCategoryCount();
+      int totalUsers = 0;
+      int activeUsers = 0;
+      int totalOrders = 0;
+      int pendingOrders = 0;
+      double totalRevenue = 0.0;
+      double monthlyRevenue = 0.0;
+      int categoryCount = 0;
+
+      // Load users safely
+      try {
+        totalUsers = await _userService.getUserCount();
+      } catch (e) {
+        print('Error loading user count: $e');
+      }
+
+      try {
+        activeUsers = await _userService.getActiveUsersCount();
+      } catch (e) {
+        print('Error loading active users: $e');
+      }
+
+      // Load orders safely
+      try {
+        totalOrders = await _orderService.getOrderCount();
+      } catch (e) {
+        print('Error loading order count: $e');
+      }
+
+      try {
+        pendingOrders = await _orderService.getPendingOrderCount();
+      } catch (e) {
+        print('Error loading pending orders: $e');
+      }
+
+      try {
+        totalRevenue = await _orderService.getTotalRevenue();
+      } catch (e) {
+        print('Error loading total revenue: $e');
+      }
 
       // Calculate monthly revenue (last 30 days)
-      final now = DateTime.now();
-      final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-      final monthlyRevenue =
-          await _orderService.getRevenueByDateRange(thirtyDaysAgo, now);
+      try {
+        final now = DateTime.now();
+        final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+        monthlyRevenue =
+            await _orderService.getRevenueByDateRange(thirtyDaysAgo, now);
+      } catch (e) {
+        print('Error loading monthly revenue: $e');
+      }
+
+      // Load categories safely
+      try {
+        categoryCount = await _categoryService.getCategoryCount();
+      } catch (e) {
+        print('Error loading category count: $e');
+      }
 
       return {
         'totalUsers': totalUsers,

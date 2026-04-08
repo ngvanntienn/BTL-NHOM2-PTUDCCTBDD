@@ -29,18 +29,20 @@ class UserService {
     }
   }
 
-  // Get users by role
+  // Get users by role - Filter in code
   Future<List<UserModel>> getUsersByRole(String role) async {
     try {
       final snapshot = await _firestore
           .collection('users')
-          .where('role', isEqualTo: role)
           .get();
+      
       return snapshot.docs
           .map((doc) => UserModel.fromMap(doc.data()))
+          .where((user) => user.role == role)
           .toList();
     } catch (e) {
-      throw Exception('Failed to fetch users by role: $e');
+      print('Error fetching users by role: $e');
+      return [];
     }
   }
 
@@ -110,23 +112,39 @@ class UserService {
       final snapshot = await _firestore.collection('users').count().get();
       return snapshot.count ?? 0;
     } catch (e) {
-      throw Exception('Failed to get user count: $e');
+      // Return 0 if collection doesn't exist
+      return 0;
     }
   }
 
-  // Get active users (last 7 days)
+  // Get active users (last 7 days) - Filter in code to avoid missing fields
   Future<int> getActiveUsersCount() async {
     try {
+      final snapshot = await _firestore.collection('users').get();
+      
+      if (snapshot.docs.isEmpty) {
+        return 0;
+      }
+      
       final sevenDaysAgo =
           DateTime.now().subtract(const Duration(days: 7));
-      final snapshot = await _firestore
-          .collection('users')
-          .where('lastActive', isGreaterThanOrEqualTo: sevenDaysAgo)
-          .count()
-          .get();
-      return snapshot.count ?? 0;
+      
+      // Filter in code - check if lastActive exists and is recent
+      int count = 0;
+      for (var doc in snapshot.docs) {
+        final lastActive = doc.data()['lastActive'];
+        if (lastActive != null) {
+          final lastActiveDate = (lastActive as Timestamp).toDate();
+          if (lastActiveDate.isAfter(sevenDaysAgo)) {
+            count++;
+          }
+        }
+      }
+      return count;
     } catch (e) {
-      throw Exception('Failed to get active users count: $e');
+      // Return 0 if error
+      print('Error getting active users: $e');
+      return 0;
     }
   }
 }

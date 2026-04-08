@@ -47,3 +47,5 @@ app.*.map.json
 
 *.md
 !README.md
+
+export_firestore_to_json.dart

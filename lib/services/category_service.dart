@@ -4,22 +4,31 @@ import '../models/category_model.dart';
 class CategoryService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Get all categories
+  // Get all categories - Handle missing createdAt field
   Future<List<CategoryModel>> getAllCategories() async {
     try {
       final snapshot = await _firestore
           .collection('categories')
-          .orderBy('createdAt', descending: true)
           .get();
-      return snapshot.docs
+      
+      if (snapshot.docs.isEmpty) {
+        return [];
+      }
+      
+      final categories = snapshot.docs
           .map((doc) {
             final data = doc.data();
             data['categoryId'] = doc.id;
             return CategoryModel.fromMap(data);
           })
           .toList();
+      
+      // Sort by createdAt in code
+      categories.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return categories;
     } catch (e) {
-      throw Exception('Failed to fetch categories: $e');
+      print('Error fetching categories: $e');
+      return [];
     }
   }
 
@@ -97,14 +106,15 @@ class CategoryService {
     }
   }
 
-  // Get category count
+  // Get category count - Return 0 if error
   Future<int> getCategoryCount() async {
     try {
       final snapshot =
           await _firestore.collection('categories').count().get();
       return snapshot.count ?? 0;
     } catch (e) {
-      throw Exception('Failed to get category count: $e');
+      // Return 0 if collection doesn't exist
+      return 0;
     }
   }
 

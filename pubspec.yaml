@@ -1,10 +1,10 @@
 name: btl_nhom2_ptudcctbdd
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 version: 0.1.0+1
 
 environment:
-  sdk: '>=3.10.0 <4.0.0'
+  sdk: ">=3.10.0 <4.0.0"
 
 dependencies:
   cloud_firestore: ^6.2.0
@@ -12,6 +12,7 @@ dependencies:
   firebase_core: ^4.6.0
   google_fonts: ^6.2.1
   google_sign_in: ^6.2.2
+  shared_preferences: ^2.2.2
   flutter:
     sdk: flutter
 

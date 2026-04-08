@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../seller/seller_panel.dart';
+import 'seller/seller_panel.dart';
 
 class SellerHomeScreen extends StatelessWidget {
-  const SellerHomeScreen({super.key});
+  const SellerHomeScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

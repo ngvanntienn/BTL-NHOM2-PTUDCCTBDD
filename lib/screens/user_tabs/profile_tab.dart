@@ -3,6 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../app_routes.dart';
 import '../../theme/app_theme.dart';
+import '../login_screen.dart';
+import 'edit_profile_screen.dart';
+import 'order_history_screen.dart';
+import 'favorites_screen.dart';
+import 'voucher_screen.dart';
+import 'address_screen.dart';
+import 'payment_method_screen.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -339,9 +346,11 @@ class _ProfileTabState extends State<ProfileTab> {
           _menuTile(Icons.account_balance_wallet_outlined, 'Ví & Khuyến mãi',
             'Mã giảm giá, Voucher của bạn', onTap: () => Navigator.pushNamed(context, AppRoutes.voucher)),
           _menuTile(Icons.location_on_outlined, 'Địa chỉ giao hàng',
-              'Quản lý danh sách địa chỉ', onTap: () {}),
+              'Quản lý danh sách địa chỉ', onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const AddressScreen()))),
           _menuTile(Icons.payment_outlined, 'Phương thức thanh toán',
-              'Thêm & quản lý thẻ ngân hàng', onTap: () {}),
+              'Thêm & quản lý thẻ ngân hàng', onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const PaymentMethodScreen()))),
         ],
       ),
     );

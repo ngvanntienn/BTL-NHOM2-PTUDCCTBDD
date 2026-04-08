@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../../theme/app_theme.dart';
+import 'order_detail_screen.dart';
 
 class OrderHistoryScreen extends StatefulWidget {
   final String initialFilter;
@@ -56,11 +58,11 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    Query query = FirebaseFirestore.instance
+    // Chỉ dùng 1 điều kiện where duy nhất, filter + sort ở client
+    final stream = FirebaseFirestore.instance
         .collection('orders')
         .where('userId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true);
-    if (_filter != 'all') query = query.where('status', isEqualTo: _filter);
+        .snapshots();
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -109,18 +111,52 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           // Order list
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: query.snapshots(),
+              stream: stream,
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                 }
-                final docs = snap.data?.docs ?? [];
+                if (snap.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange),
+                          const SizedBox(height: 12),
+                          const Text('Không thể tải đơn hàng', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          const SizedBox(height: 8),
+                          Text('${snap.error}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12), textAlign: TextAlign.center),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                var docs = snap.data?.docs ?? [];
+
+                // Filter theo status ở client (không cần Firestore index)
+                if (_filter != 'all') {
+                  docs = docs.where((d) =>
+                    (d.data() as Map)['status'] == _filter
+                  ).toList();
+                }
+
                 if (docs.isEmpty) return _emptyState();
+                // Sắp xếp mới nhất lên trên ở phía client
+                final sorted = [...docs]..sort((a, b) {
+                  final tA = (a.data() as Map)['createdAt'] as Timestamp?;
+                  final tB = (b.data() as Map)['createdAt'] as Timestamp?;
+                  if (tA == null && tB == null) return 0;
+                  if (tA == null) return 1;
+                  if (tB == null) return -1;
+                  return tB.compareTo(tA);
+                });
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
-                  itemCount: docs.length,
+                  itemCount: sorted.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (_, i) => _orderCard(docs[i]),
+                  itemBuilder: (_, i) => _orderCard(sorted[i]),
                 );
               },
             ),
@@ -151,106 +187,111 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     final items  = (data['items'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
     final total  = (data['total'] as num?)?.toDouble() ?? 0.0;
     final date   = (data['createdAt'] as Timestamp?)?.toDate();
+    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
+    
     final dateStr = date != null
         ? '${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2,'0')}'
         : '--';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('#${doc.id.substring(0, 8).toUpperCase()}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimary)),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _statusColor(status).withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_statusIcon(status), color: _statusColor(status), size: 14),
-                      const SizedBox(width: 4),
-                      Text(_statusLabel(status),
-                          style: TextStyle(color: _statusColor(status), fontWeight: FontWeight.bold, fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            child: Text(dateStr, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-          ),
-
-          // Items summary
-          const Divider(height: 20, indent: 16, endIndent: 16, color: AppTheme.dividerColor),
-          if (items.isNotEmpty)
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: doc.id))),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.dividerColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-              child: Column(
-                children: items.take(3).map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '× ${item['qty'] ?? 1}  ${item['name'] ?? 'Món ăn'}',
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text('${((item['price'] as num?)?.toDouble() ?? 0) * ((item['qty'] as num?)?.toInt() ?? 1)}đ',
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                    ],
-                  ),
-                )).toList(),
-              ),
-            ),
-          if (items.length > 3)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-              child: Text('+ ${items.length - 3} món khác', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-            ),
-
-          const Divider(height: 20, indent: 16, endIndent: 16, color: AppTheme.dividerColor),
-          // Footer
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Tổng: ${total.toStringAsFixed(0)}đ',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
-                if (status == 'completed')
-                  FilledButton.icon(
-                    onPressed: () => _reorder(data),
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: const Text('Đặt lại', style: TextStyle(fontWeight: FontWeight.bold)),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('#${doc.id.substring(0, 8).toUpperCase()}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimary)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _statusColor(status).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_statusIcon(status), color: _statusColor(status), size: 14),
+                        const SizedBox(width: 4),
+                        Text(_statusLabel(status),
+                            style: TextStyle(color: _statusColor(status), fontWeight: FontWeight.bold, fontSize: 12)),
+                      ],
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: Text(dateStr, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+            ),
+
+            // Items summary
+            const Divider(height: 20, indent: 16, endIndent: 16, color: AppTheme.dividerColor),
+            if (items.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: Column(
+                  children: items.take(3).map((item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '× ${item['quantity'] ?? 1}  ${item['productName'] ?? 'Món ăn'}',
+                            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(currencyFormat.format(((item['price'] as num?)?.toDouble() ?? 0) * (item['quantity'] ?? 1) * 1000),
+                            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                      ],
+                    ),
+                  )).toList(),
+                ),
+              ),
+            if (items.length > 3)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: Text('+ ${items.length - 3} món khác', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+              ),
+
+            const Divider(height: 20, indent: 16, endIndent: 16, color: AppTheme.dividerColor),
+            // Footer
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Tổng: ${currencyFormat.format(total * 1000)}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+                  if (status == 'completed')
+                    FilledButton.icon(
+                      onPressed: () => _reorder(data),
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text('Đặt lại', style: TextStyle(fontWeight: FontWeight.bold)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

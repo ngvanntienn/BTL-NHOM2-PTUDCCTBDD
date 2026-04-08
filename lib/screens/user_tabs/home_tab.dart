@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../app_routes.dart';
 import '../../models/food_model.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../theme/app_theme.dart';
+import '../../models/product_model.dart';
+import '../../providers/cart_provider.dart';
+import '../../providers/favorites_provider.dart';
+import '../../providers/notification_provider.dart';
+import 'notification_screen.dart';
 
 class HomeTab extends StatelessWidget {
-  const HomeTab({super.key});
+  final VoidCallback? onSeeAll;
+  final Function(String)? onCategorySelected;
+
+  const HomeTab({super.key, this.onSeeAll, this.onCategorySelected});
 
   @override
   Widget build(BuildContext context) {
@@ -15,16 +24,13 @@ class HomeTab extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // ── Fixed Header ─────────────────────────────────────────
-            _buildHeader(),
-            // ── Scrollable Content ────────────────────────────────────
+            _buildHeader(context),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Greeting
                     const Text(
                       'Hôm nay bạn muốn ăn gì? 👋',
                       style: TextStyle(
@@ -41,20 +47,23 @@ class HomeTab extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     // Search Bar
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppTheme.dividerColor),
-                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.search, color: AppTheme.textSecondary, size: 20),
-                          SizedBox(width: 10),
-                          Text('Tìm món ăn, quán ăn...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
-                        ],
+                    GestureDetector(
+                      onTap: onSeeAll,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppTheme.dividerColor),
+                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.search, color: AppTheme.textSecondary, size: 20),
+                            SizedBox(width: 10),
+                            Text('Tìm món ăn, quán ăn...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -103,38 +112,14 @@ class HomeTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 28),
 
-                    // Categories
-                    _sectionHeader(
-                      context,
-                      'Khám phá theo loại',
-                      'Xem tất cả',
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.category,
-                        arguments: const CategoryRouteArgs(initialCategory: null),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildCategoryRow(context),
+                    _buildAiBanner(),
                     const SizedBox(height: 28),
 
-                    // AI Banner
-                    _buildAiBanner(context),
-                    const SizedBox(height: 28),
-
-                    // Trending
-                    _sectionHeader(
-                      context,
-                      'Món đang thịnh hành',
-                      'Xem tất cả',
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.category,
-                        arguments: const CategoryRouteArgs(onlyTrending: true),
-                      ),
-                    ),
+                    _sectionHeader('Món đang thịnh hành', 'Xem tất cả'),
                     const SizedBox(height: 16),
-                    _buildTrendingRow(context),
+
+                    // Load từ Firestore
+                    _buildTrendingFromFirestore(context),
                   ],
                 ),
               ),
@@ -145,14 +130,13 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Logo + Location
           Row(
             children: [
               Container(
@@ -165,9 +149,9 @@ class HomeTab extends StatelessWidget {
                 child: const Icon(Icons.fastfood_rounded, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 10),
-              Column(
+              const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text('Giao đến', style: TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
                   Row(
                     children: [
@@ -181,27 +165,30 @@ class HomeTab extends StatelessWidget {
               ),
             ],
           ),
-          // Notification bell
-          Stack(
-            children: [
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.notifications_none_rounded, color: AppTheme.textPrimary, size: 26),
-              ),
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
+          Consumer<NotificationProvider>(
+            builder: (context, provider, _) => Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())),
+                  icon: const Icon(Icons.notifications_none_rounded, color: AppTheme.textPrimary, size: 26),
                 ),
-              )
-            ],
+                if (provider.unreadCount > 0)
+                  Positioned(
+                    right: 12,
+                    top: 12,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                  )
+              ],
+            ),
           )
         ],
       ),
@@ -288,6 +275,78 @@ class HomeTab extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
+        Text(title,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+                color: AppTheme.textPrimary)),
+        GestureDetector(
+          onTap: onSeeAll,
+          child: Text(action,
+              style: const TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryRow() {
+    final cats = [
+      {'icon': Icons.rice_bowl_outlined,     'label': 'Cơm'},
+      {'icon': Icons.ramen_dining_outlined,   'label': 'Bún & Phở'},
+      {'icon': Icons.local_drink_outlined,    'label': 'Trà sữa'},
+      {'icon': Icons.fastfood_outlined,       'label': 'Snacks'},
+      {'icon': Icons.local_pizza_outlined,    'label': 'Pizza'},
+      {'icon': Icons.bakery_dining_outlined,  'label': 'Bánh mì'},
+      {'icon': Icons.coffee_outlined,         'label': 'Coffee'},
+      {'icon': Icons.more_horiz,              'label': 'Thêm'},
+    ];
+    return SizedBox(
+      height: 82,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        itemCount: cats.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, i) {
+          final cat = cats[i];
+          final isMore = cat['label'] == 'Thêm';
+          final label = cat['label'] as String;
+          return GestureDetector(
+            onTap: () {
+              if (onCategorySelected != null) {
+                onCategorySelected!(label);
+              }
+            },
+            child: SizedBox(
+              width: 54,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isMore
+                          ? const Color(0xFFF0F0F0)
+                          : AppTheme.primaryColor.withOpacity(0.09),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(
+                      cat['icon'] as IconData,
+                      color: isMore ? AppTheme.textSecondary : AppTheme.primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    cat['label'] as String,
+                    style: const TextStyle(fontSize: 10, color: AppTheme.textPrimary, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               );
@@ -307,18 +366,14 @@ class HomeTab extends StatelessWidget {
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
         boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.06), blurRadius: 10)],
       ),
-      child: Row(
+      child: const Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.smart_toy_outlined, color: AppTheme.primaryColor, size: 28),
+          Padding(
+            padding: EdgeInsets.all(12),
+            child: Icon(Icons.smart_toy_outlined, color: AppTheme.primaryColor, size: 28),
           ),
-          const SizedBox(width: 14),
-          const Expanded(
+          SizedBox(width: 14),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -364,6 +419,66 @@ class HomeTab extends StatelessWidget {
           return Container(
             height: 120,
             alignment: Alignment.center,
+          Padding(
+            padding: EdgeInsets.all(8),
+            child: Icon(Icons.arrow_forward, color: AppTheme.primaryColor, size: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Load sản phẩm từ Firestore ──────────────────────────────────────
+  Widget _buildTrendingFromFirestore(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('foods').limit(10).snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 220,
+            child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+          );
+        }
+        final docs = snap.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return const SizedBox(
+            height: 100,
+            child: Center(
+              child: Text('Chưa có sản phẩm nào', style: TextStyle(color: AppTheme.textSecondary)),
+            ),
+          );
+        }
+        final products = docs.map((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          return ProductModel(
+            id: doc.id,
+            name: d['name'] ?? '',
+            description: d['description'] ?? '',
+            price: (d['price'] as num?)?.toDouble() ?? 0.0,
+            imageUrl: d['imageUrl'] ?? '',
+            category: d['category'] ?? '',
+          );
+        }).toList();
+        return _buildTrendingRow(context, products);
+      },
+    );
+  }
+
+  Widget _buildTrendingRow(BuildContext context, List<ProductModel> products) {
+    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
+    final cart = Provider.of<CartProvider>(context, listen: false);
+
+    return SizedBox(
+      height: 220,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: products.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (_, i) {
+          final p = products[i];
+          return Container(
+            width: 160,
+>>>>>>> main
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -464,6 +579,87 @@ class HomeTab extends StatelessWidget {
     return Container(
       color: const Color(0xFFF5F5F5),
       child: const Center(child: Icon(Icons.image_outlined, color: Colors.grey, size: 36)),
+              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: Stack(
+                    children: [
+                      Container(
+                        height: 120,
+                        width: double.infinity,
+                        color: const Color(0xFFF5F5F5),
+                        child: p.imageUrl.isNotEmpty
+                            ? Image.network(p.imageUrl, fit: BoxFit.cover)
+                            : const Center(child: Icon(Icons.image_outlined, color: Colors.grey, size: 36)),
+                      ),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Consumer<FavoritesProvider>(
+                          builder: (context, favorites, _) {
+                            final isFav = favorites.isFavorite(p.id);
+                            return GestureDetector(
+                              onTap: () => favorites.toggleFavorite(p),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                child: Icon(
+                                  isFav ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                                  color: isFav ? AppTheme.primaryColor : Colors.grey,
+                                  size: 18,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(p.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
+                      const SizedBox(height: 4),
+                      Text(p.category, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(currencyFormat.format(p.price * 1000),
+                              style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                          GestureDetector(
+                            onTap: () {
+                              cart.addItem(p);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Đã thêm ${p.name} vào giỏ hàng'), duration: const Duration(seconds: 1)),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(8)),
+                              child: const Icon(Icons.add, color: Colors.white, size: 16),
+                            ),
+                          )
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

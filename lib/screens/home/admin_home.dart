@@ -8,8 +8,10 @@ class AdminHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Console',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Bảng điều khiển quản trị',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
@@ -27,38 +29,47 @@ class AdminHomeScreen extends StatelessWidget {
             const CircleAvatar(
               radius: 40,
               backgroundColor: Colors.redAccent,
-              child: Icon(Icons.admin_panel_settings, size: 40, color: Colors.white),
+              child: Icon(
+                Icons.admin_panel_settings,
+                size: 40,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 24),
-            const Text('Super Admin Portal',
-                style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary)),
+            const Text(
+              'Trung tâm quản trị hệ thống',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
+            ),
             const SizedBox(height: 8),
-            const Text('System management and control',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 16)),
+            const Text(
+              'Quản lý và kiểm soát toàn bộ hệ thống',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+            ),
             const SizedBox(height: 32),
             _buildFeatureCard(
               context,
-              'User Management',
-              'View and manage all accounts',
+              'Quản lý người dùng',
+              'Xem và quản lý tất cả tài khoản',
               Icons.people_outline,
               Colors.redAccent,
             ),
             const SizedBox(height: 16),
             _buildFeatureCard(
               context,
-              'System Logs',
-              'Monitor performance and errors',
+              'Nhật ký hệ thống',
+              'Theo dõi hiệu năng và lỗi',
               Icons.list_alt_outlined,
               Colors.indigoAccent,
             ),
             const SizedBox(height: 16),
             _buildFeatureCard(
               context,
-              'Global Settings',
-              'Adjust platform configurations',
+              'Cài đặt nền tảng',
+              'Điều chỉnh cấu hình vận hành',
               Icons.settings_suggest_outlined,
               Colors.white,
             ),
@@ -68,8 +79,13 @@ class AdminHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureCard(BuildContext context, String title, String subtitle,
-      IconData icon, Color color) {
+  Widget _buildFeatureCard(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -92,19 +108,29 @@ class AdminHomeScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary)),
-                Text(subtitle,
-                    style: const TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 14)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
               ],
             ),
           ),
-          const Icon(Icons.arrow_forward_ios,
-              color: AppTheme.textSecondary, size: 16),
+          const Icon(
+            Icons.arrow_forward_ios,
+            color: AppTheme.textSecondary,
+            size: 16,
+          ),
         ],
       ),
     );

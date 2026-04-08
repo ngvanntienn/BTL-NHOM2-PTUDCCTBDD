@@ -22,6 +22,24 @@ class CategoryScreen extends StatefulWidget {
 class _CategoryScreenState extends State<CategoryScreen> {
   String _selectedCategory = 'Tất cả';
 
+  int _ratingGroup(double rating) {
+    if (rating >= 4) return 0;
+    if (rating >= 1) return 1;
+    return 2;
+  }
+
+  int _compareByRatingPriority(FoodModel a, FoodModel b) {
+    final int groupDiff = _ratingGroup(a.rating).compareTo(_ratingGroup(b.rating));
+    if (groupDiff != 0) return groupDiff;
+
+    final int ratingDiff = b.rating.compareTo(a.rating);
+    if (ratingDiff != 0) return ratingDiff;
+
+    final String aName = a.name.trim().toLowerCase();
+    final String bName = b.name.trim().toLowerCase();
+    return aName.compareTo(bName);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -53,18 +71,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
                   .map(FoodModel.fromDoc)
                   .toList() ??
               <FoodModel>[];
-          allFoods.sort((a, b) {
-            final String aName = a.name.trim();
-            final String bName = b.name.trim();
-            if (aName.isEmpty && bName.isEmpty) return 0;
-            if (aName.isEmpty) return 1;
-            if (bName.isEmpty) return -1;
-            return aName.toLowerCase().compareTo(bName.toLowerCase());
-          });
-            final List<FoodModel> trendingFoods = allFoods
+          allFoods.sort(_compareByRatingPriority);
+          final List<FoodModel> trendingFoods = allFoods
               .where((food) => food.isTrending)
               .toList();
-            final List<FoodModel> foods = widget.onlyTrending
+          final List<FoodModel> foods = widget.onlyTrending
               ? (trendingFoods.isEmpty ? allFoods : trendingFoods)
               : allFoods;
 

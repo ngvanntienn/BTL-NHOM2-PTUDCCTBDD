@@ -41,7 +41,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance
             .collection('foods')
-            .orderBy('name')
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -54,6 +53,14 @@ class _CategoryScreenState extends State<CategoryScreen> {
                   .map(FoodModel.fromDoc)
                   .toList() ??
               <FoodModel>[];
+          allFoods.sort((a, b) {
+            final String aName = a.name.trim();
+            final String bName = b.name.trim();
+            if (aName.isEmpty && bName.isEmpty) return 0;
+            if (aName.isEmpty) return 1;
+            if (bName.isEmpty) return -1;
+            return aName.toLowerCase().compareTo(bName.toLowerCase());
+          });
             final List<FoodModel> trendingFoods = allFoods
               .where((food) => food.isTrending)
               .toList();
@@ -182,7 +189,7 @@ class _FoodListTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    food.name,
+                    food.name.trim().isEmpty ? 'Món chưa đặt tên' : food.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

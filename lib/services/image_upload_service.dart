@@ -44,6 +44,66 @@ class ImageUploadService {
     return ref.getDownloadURL();
   }
 
+  Future<String> uploadUserAvatar(XFile file) async {
+    final Uint8List bytes = await file.readAsBytes();
+
+    if (CloudflareImageService.isConfigured) {
+      try {
+        final CloudflareImageUploadResult result =
+            await CloudflareImageService.uploadFoodImage(
+              bytes: bytes,
+              fileName: file.name,
+              mimeType: file.mimeType ?? 'image/jpeg',
+            ).timeout(const Duration(seconds: 20));
+        return result.url;
+      } catch (_) {
+        // Fallback to Firebase Storage when Cloudinary is unavailable.
+      }
+    }
+
+    final String userId = _auth.currentUser?.uid ?? 'anonymous';
+    final String extension = _extractExtension(file.name);
+    final String path =
+        'user_avatars/$userId/${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+    final Reference ref = _storage.ref().child(path);
+    await ref.putData(
+      bytes,
+      SettableMetadata(contentType: file.mimeType ?? 'image/jpeg'),
+    );
+    return ref.getDownloadURL();
+  }
+
+  Future<String> uploadCategoryImage(XFile file) async {
+    final Uint8List bytes = await file.readAsBytes();
+
+    if (CloudflareImageService.isConfigured) {
+      try {
+        final CloudflareImageUploadResult result =
+            await CloudflareImageService.uploadFoodImage(
+              bytes: bytes,
+              fileName: file.name,
+              mimeType: file.mimeType ?? 'image/jpeg',
+            ).timeout(const Duration(seconds: 20));
+        return result.url;
+      } catch (_) {
+        // Fallback to Firebase Storage when Cloudinary is unavailable.
+      }
+    }
+
+    final String userId = _auth.currentUser?.uid ?? 'anonymous';
+    final String extension = _extractExtension(file.name);
+    final String path =
+        'category_images/$userId/${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+    final Reference ref = _storage.ref().child(path);
+    await ref.putData(
+      bytes,
+      SettableMetadata(contentType: file.mimeType ?? 'image/jpeg'),
+    );
+    return ref.getDownloadURL();
+  }
+
   String _extractExtension(String fileName) {
     final int idx = fileName.lastIndexOf('.');
     if (idx < 0 || idx == fileName.length - 1) {

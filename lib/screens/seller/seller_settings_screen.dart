@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../theme/app_theme.dart';
 import '../login_screen.dart';
+import '../user_tabs/edit_profile_screen.dart';
 
 class SellerSettingsScreen extends StatefulWidget {
   const SellerSettingsScreen({Key? key}) : super(key: key);
@@ -14,6 +16,55 @@ class SellerSettingsScreen extends StatefulWidget {
 class _SellerSettingsScreenState extends State<SellerSettingsScreen> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
+
+  void _showAboutDialog() {
+    if (!mounted) {
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Về chúng tôi'),
+        content: const Text('Food Delivery App'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openEditProfile(Map<String, dynamic> userData) async {
+    bool? updated;
+    try {
+      updated = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute<bool>(
+          builder: (_) => EditProfileScreen(userData: userData),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể mở màn chỉnh sửa: $e')),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (updated == true) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã cập nhật thông tin cửa hàng.')),
+      );
+    }
+  }
 
   Future<void> _logout() async {
     final confirm = await showDialog<bool>(
@@ -62,17 +113,37 @@ class _SellerSettingsScreenState extends State<SellerSettingsScreen> {
         child: Column(
           children: [
             // Shop info section
-            FutureBuilder<DocumentSnapshot>(
-              future: _firestore.collection('users').doc(userId).get(),
+            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream: _firestore.collection('users').doc(userId).snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Container(
+                    color: Colors.white,
+                    margin: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      'Không tải được thông tin cửa hàng: ${snapshot.error}',
+                    ),
+                  );
+                }
+
+                if (!snapshot.hasData || !snapshot.data!.exists) {
                   return const SizedBox.shrink();
                 }
 
-                final data = snapshot.data?.data() as Map<String, dynamic>?;
+                final data = snapshot.data?.data();
                 final name = data?['name'] ?? 'Cửa hàng';
                 final email = data?['email'] ?? 'email@example.com';
                 final phone = data?['phone'] ?? 'Chưa có';
+                final userData = data ?? <String, dynamic>{};
 
                 return Container(
                   color: Colors.white,
@@ -96,7 +167,7 @@ class _SellerSettingsScreenState extends State<SellerSettingsScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () => _openEditProfile(userData),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryColor,
                             shape: RoundedRectangleBorder(
@@ -122,28 +193,10 @@ class _SellerSettingsScreenState extends State<SellerSettingsScreen> {
               child: Column(
                 children: [
                   _buildSettingTile(
-                    Icons.notifications_outlined,
-                    'Thông báo',
-                    'Cài đặt thông báo đơn hàng và khuyến mãi',
-                    onTap: () {},
-                  ),
-                  _buildSettingTile(
-                    Icons.security_outlined,
-                    'Bảo mật',
-                    'Đổi mật khẩu và xác minh tài khoản',
-                    onTap: () {},
-                  ),
-                  _buildSettingTile(
-                    Icons.payment_outlined,
-                    'Thanh toán',
-                    'Quản lý tài khoản ngân hàng',
-                    onTap: () {},
-                  ),
-                  _buildSettingTile(
                     Icons.info_outlined,
                     'Về chúng tôi',
-                    'Phiên bản ứng dụng & thông tin',
-                    onTap: () {},
+                    'Thông tin ứng dụng & cập nhật ảnh đại diện',
+                    onTap: _showAboutDialog,
                   ),
                 ],
               ),

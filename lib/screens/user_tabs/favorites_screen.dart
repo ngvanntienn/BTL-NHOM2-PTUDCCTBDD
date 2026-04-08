@@ -4,9 +4,26 @@ import 'package:intl/intl.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/cart_provider.dart';
+import '../../utils/money_utils.dart';
 
-class FavoritesScreen extends StatelessWidget {
+class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
+
+  @override
+  State<FavoritesScreen> createState() => _FavoritesScreenState();
+}
+
+class _FavoritesScreenState extends State<FavoritesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      Provider.of<FavoritesProvider>(context, listen: false).fetchFavorites();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,9 +33,7 @@ class FavoritesScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('Danh sách yêu thích'),
-      ),
+      appBar: AppBar(title: const Text('Danh sách yêu thích')),
       body: favoritesProvider.favorites.isEmpty
           ? _emptyFavorites()
           : ListView.separated(
@@ -38,33 +53,69 @@ class FavoritesScreen extends StatelessWidget {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(p.imageUrl, width: 80, height: 80, fit: BoxFit.cover),
+                        child: Image.network(
+                          p.imageUrl,
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text(
+                              p.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
                             const SizedBox(height: 4),
-                            Text(p.category, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                            Text(
+                              p.category,
+                              style: const TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
                             const SizedBox(height: 8),
-                            Text(currencyFormat.format(p.price * 1000),
-                                style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                            Text(
+                              MoneyUtils.formatVnd(currencyFormat, p.price),
+                              style: const TextStyle(
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       Column(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.favorite_rounded, color: AppTheme.primaryColor),
-                            onPressed: () => favoritesProvider.toggleFavorite(p),
+                            icon: const Icon(
+                              Icons.favorite_rounded,
+                              color: AppTheme.primaryColor,
+                            ),
+                            onPressed: () =>
+                                favoritesProvider.toggleFavorite(p),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.add_shopping_cart, color: AppTheme.primaryColor, size: 20),
+                            icon: const Icon(
+                              Icons.add_shopping_cart,
+                              color: AppTheme.primaryColor,
+                              size: 20,
+                            ),
                             onPressed: () {
                               cart.addItem(p);
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã thêm ${p.name} vào giỏ hàng')));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Đã thêm ${p.name} vào giỏ hàng',
+                                  ),
+                                ),
+                              );
                             },
                           ),
                         ],
@@ -82,9 +133,16 @@ class FavoritesScreen extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.favorite_border_rounded, size: 80, color: AppTheme.textSecondary.withOpacity(0.3)),
+          Icon(
+            Icons.favorite_border_rounded,
+            size: 80,
+            color: AppTheme.textSecondary.withOpacity(0.3),
+          ),
           const SizedBox(height: 20),
-          const Text('Chưa có món ăn yêu thích nào', style: TextStyle(color: AppTheme.textSecondary, fontSize: 16)),
+          const Text(
+            'Chưa có món ăn yêu thích nào',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+          ),
         ],
       ),
     );

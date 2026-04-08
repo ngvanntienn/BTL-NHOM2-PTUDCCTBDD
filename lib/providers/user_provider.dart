@@ -1,12 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import '../models/user_model.dart';
 import '../services/user_service.dart';
 
 class UserProvider extends ChangeNotifier {
   final UserService _userService = UserService();
-  
+
   List<UserModel> _allUsers = [];
   bool _isLoading = false;
+
+  void _safeNotifyListeners() {
+    final binding = SchedulerBinding.instance;
+    final phase = binding.schedulerPhase;
+    final isBuilding =
+        phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.transientCallbacks;
+
+    if (isBuilding) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (hasListeners) {
+          notifyListeners();
+        }
+      });
+      return;
+    }
+
+    notifyListeners();
+  }
 
   // Getters
   List<UserModel> get allUsers => _allUsers;
@@ -14,18 +34,20 @@ class UserProvider extends ChangeNotifier {
 
   // Load all users
   Future<void> loadUsers() async {
+    if (_isLoading) {
+      return;
+    }
+
     _isLoading = true;
-    notifyListeners();
-    
+    _safeNotifyListeners();
+
     try {
       _allUsers = await _userService.getAllUsers();
-      notifyListeners();
     } catch (e) {
       print('Error loading users: $e');
-      notifyListeners();
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotifyListeners();
     }
   }
 
@@ -44,14 +66,30 @@ class UserProvider extends ChangeNotifier {
     final index = _allUsers.indexWhere((u) => u.userId == updatedUser.userId);
     if (index >= 0) {
       _allUsers[index] = updatedUser;
-      notifyListeners();
+      _safeNotifyListeners();
     }
   }
 
   // Delete user optimistically
-  void deleteUserOptimistically(String userId) {
-    _allUsers.removeWhere((u) => u.userId == userId);
-    notifyListeners();
+  ({UserModel? removedUser, int removedIndex}) deleteUserOptimistically(
+    String userId,
+  ) {
+    final int index = _allUsers.indexWhere((u) => u.userId == userId);
+    UserModel? removed;
+    if (index >= 0) {
+      removed = _allUsers.removeAt(index);
+    }
+    _safeNotifyListeners();
+    return (removedUser: removed, removedIndex: index);
+  }
+
+  void restoreDeletedUser(UserModel user, int index) {
+    if (index < 0 || index > _allUsers.length) {
+      _allUsers.add(user);
+    } else {
+      _allUsers.insert(index, user);
+    }
+    _safeNotifyListeners();
   }
 
   // Update user in Firestore
@@ -67,9 +105,9 @@ class UserProvider extends ChangeNotifier {
   }
 
   // Delete user from Firestore
-  Future<void> deleteUser(String userId) async {
+  Future<DeleteUserOutcome> deleteUser(String userId) async {
     try {
-      await _userService.deleteUser(userId);
+      return await _userService.deleteUser(userId);
       // Optimistic delete already done before calling this
       // Just notify if needed
     } catch (e) {
@@ -87,26 +125,30 @@ class UserProvider extends ChangeNotifier {
       print('[UserProvider] User not found!');
       return;
     }
-    
+
     // Store original state for rollback
     final originalUser = _allUsers[index];
-    print('[UserProvider] Original user: ${originalUser.name}, isDisabled: ${originalUser.isDisabled}');
-    
+    print(
+      '[UserProvider] Original user: ${originalUser.name}, isDisabled: ${originalUser.isDisabled}',
+    );
+
     try {
       // 1. Optimistic update - update UI immediately
       _allUsers[index] = _allUsers[index].copyWith(isDisabled: true);
-      print('[UserProvider] After optimistic update: ${_allUsers[index].name}, isDisabled: ${_allUsers[index].isDisabled}');
-      
-      notifyListeners();
+      print(
+        '[UserProvider] After optimistic update: ${_allUsers[index].name}, isDisabled: ${_allUsers[index].isDisabled}',
+      );
+
+      _safeNotifyListeners();
       print('[UserProvider] notifyListeners() called!');
-      
+
       // 2. Then call Firestore
       await _userService.disableUser(userId);
       print('[UserProvider] Firestore disabled successfully');
     } catch (e) {
       // Rollback on error
       _allUsers[index] = originalUser;
-      notifyListeners();
+      _safeNotifyListeners();
       print('Error disabling user: $e');
       rethrow;
     }
@@ -121,26 +163,30 @@ class UserProvider extends ChangeNotifier {
       print('[UserProvider] User not found!');
       return;
     }
-    
+
     // Store original state for rollback
     final originalUser = _allUsers[index];
-    print('[UserProvider] Original user: ${originalUser.name}, isDisabled: ${originalUser.isDisabled}');
-    
+    print(
+      '[UserProvider] Original user: ${originalUser.name}, isDisabled: ${originalUser.isDisabled}',
+    );
+
     try {
       // 1. Optimistic update - update UI immediately
       _allUsers[index] = _allUsers[index].copyWith(isDisabled: false);
-      print('[UserProvider] After optimistic update: ${_allUsers[index].name}, isDisabled: ${_allUsers[index].isDisabled}');
-      
-      notifyListeners();
+      print(
+        '[UserProvider] After optimistic update: ${_allUsers[index].name}, isDisabled: ${_allUsers[index].isDisabled}',
+      );
+
+      _safeNotifyListeners();
       print('[UserProvider] notifyListeners() called!');
-      
+
       // 2. Then call Firestore
       await _userService.enableUser(userId);
       print('[UserProvider] Firestore enabled successfully');
     } catch (e) {
       // Rollback on error
       _allUsers[index] = originalUser;
-      notifyListeners();
+      _safeNotifyListeners();
       print('Error enabling user: $e');
       rethrow;
     }

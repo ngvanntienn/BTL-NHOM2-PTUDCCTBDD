@@ -87,6 +87,12 @@ class _SellerVoucherScreenState extends State<SellerVoucherScreen> {
   }
 
   Widget _buildVoucherCard(BuildContext context, VoucherModel voucher) {
+    final int safeUsageLimit = voucher.usageLimit <= 0 ? 1 : voucher.usageLimit;
+    final double usageRatio = (voucher.currentUsage / safeUsageLimit).clamp(
+      0,
+      1,
+    );
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -186,7 +192,7 @@ class _SellerVoucherScreenState extends State<SellerVoucherScreen> {
                   ),
                   _buildInfoRow(
                     'Tỉ lệ sử dụng:',
-                    '${((voucher.currentUsage / voucher.usageLimit) * 100).toStringAsFixed(0)}%',
+                    '${(usageRatio * 100).toStringAsFixed(0)}%',
                   ),
                   _buildInfoRow(
                     'Hết hạn:',
@@ -200,13 +206,11 @@ class _SellerVoucherScreenState extends State<SellerVoucherScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
-                value: voucher.currentUsage / voucher.usageLimit,
+                value: usageRatio,
                 minHeight: 6,
                 backgroundColor: Colors.grey[300],
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  voucher.currentUsage / voucher.usageLimit > 0.8
-                      ? Colors.orange
-                      : AppTheme.primaryColor,
+                  usageRatio > 0.8 ? Colors.orange : AppTheme.primaryColor,
                 ),
               ),
             ),
@@ -273,6 +277,10 @@ class _SellerVoucherScreenState extends State<SellerVoucherScreen> {
     bool isUpdate = false,
   }) async {
     try {
+      if (voucher.createdBy.trim().isEmpty) {
+        throw Exception('Không tìm thấy tài khoản seller để tạo voucher.');
+      }
+
       if (isUpdate) {
         await _voucherService.updateVoucher(voucher.id, voucher);
       } else {
@@ -530,6 +538,12 @@ class _VoucherFormDialogState extends State<_VoucherFormDialog> {
       }
     }
 
+    final int usageLimit = int.tryParse(_usageLimitController.text.trim()) ?? 0;
+    if (usageLimit <= 0) {
+      _showError('Lượt sử dụng tối đa phải lớn hơn 0');
+      return;
+    }
+
     final minOrder = minOrderText.isNotEmpty
         ? (double.tryParse(minOrderText) ?? 0.0)
         : 0.0;
@@ -541,7 +555,7 @@ class _VoucherFormDialogState extends State<_VoucherFormDialog> {
       discountPercent: discountPercent,
       maxDiscountAmount: null,
       minOrderAmount: minOrder,
-      usageLimit: int.tryParse(_usageLimitController.text.trim()) ?? 100,
+      usageLimit: usageLimit,
       currentUsage: widget.existing?.currentUsage ?? 0,
       expiryDate: _expiryDate,
       isActive: true,

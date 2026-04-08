@@ -18,17 +18,12 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
   @override
   void initState() {
     super.initState();
-    _reloadData();
-    _searchController.addListener(() => setState(() {}));
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Reload data when screen comes back into focus
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _reloadData();
+      if (mounted) {
+        _reloadData();
+      }
     });
+    _searchController.addListener(() => setState(() {}));
   }
 
   Future<void> _reloadData() async {
@@ -47,12 +42,11 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
   // Compute filtered sellers dynamically
   List<UserModel> _getFilteredSellers(List<UserModel> allUsers) {
     final query = _searchController.text.toLowerCase();
-    return allUsers
-        .where((seller) => seller.role == 'seller')
-        .where((seller) {
-      final matchesSearch = seller.name.toLowerCase().contains(query) ||
+    return allUsers.where((seller) => seller.role == 'seller').where((seller) {
+      final matchesSearch =
+          seller.name.toLowerCase().contains(query) ||
           seller.email.toLowerCase().contains(query);
-      
+
       // Filter by status
       bool matchesStatus = true;
       if (_filterStatus == 'active') {
@@ -60,47 +54,38 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
       } else if (_filterStatus == 'blocked') {
         matchesStatus = seller.isDisabled;
       }
-      
+
       return matchesSearch && matchesStatus;
     }).toList();
   }
 
   Future<void> _toggleStoreStatus(String sellerId, bool currentStatus) async {
     try {
-      print('[StoreManagement] _toggleStoreStatus called - sellerId: $sellerId, currentStatus: $currentStatus');
-      
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      print('[StoreManagement] UserProvider allUsers count: ${userProvider.allUsers.length}');
 
       // Toggle status via provider
       if (currentStatus) {
         // Currently blocked, so enable/unblock
-        print('[StoreManagement] Enabling user (was disabled)');
         await userProvider.enableUser(sellerId);
       } else {
         // Currently active, so disable/block
-        print('[StoreManagement] Disabling user (was active)');
         await userProvider.disableUser(sellerId);
       }
-
-      print('[StoreManagement] Provider update complete');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(currentStatus ? 'Đã kích hoạt cửa hàng' : 'Đã khóa cửa hàng'),
+            content: Text(
+              currentStatus ? 'Đã kích hoạt cửa hàng' : 'Đã khóa cửa hàng',
+            ),
             backgroundColor: AppTheme.accentColor,
           ),
         );
       }
     } catch (e) {
-      print('[StoreManagement] Error in _toggleStoreStatus: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
+          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -149,10 +134,7 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -168,8 +150,10 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Quản lý Cửa hàng',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Quản lý Cửa hàng',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppTheme.textPrimary),
@@ -184,16 +168,20 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: 'Tìm kiếm cửa hàng...',
-                    prefixIcon:
-                        const Icon(Icons.search, color: AppTheme.textSecondary),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: AppTheme.textSecondary,
+                    ),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? GestureDetector(
                             onTap: () {
                               _searchController.clear();
                               setState(() {});
                             },
-                            child: const Icon(Icons.clear,
-                                color: AppTheme.textSecondary),
+                            child: const Icon(
+                              Icons.clear,
+                              color: AppTheme.textSecondary,
+                            ),
                           )
                         : null,
                   ),
@@ -216,13 +204,14 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
             child: Consumer<UserProvider>(
               builder: (context, userProvider, child) {
                 // Dynamically compute filtered list based on provider data + filters
-                final filteredSellers = _getFilteredSellers(userProvider.allUsers);
-                print('[StoreManagement] Consumer rebuilt - allUsers: ${userProvider.allUsers.length}, filtered: ${filteredSellers.length}');
-                
+                final filteredSellers = _getFilteredSellers(
+                  userProvider.allUsers,
+                );
+
                 if (userProvider.isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                
+
                 // Pull-to-refresh wrapper
                 return RefreshIndicator(
                   onRefresh: _reloadData,
@@ -237,12 +226,20 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   const SizedBox(height: 100),
-                                  Icon(Icons.store_outlined,
-                                      size: 64,
-                                      color: AppTheme.textSecondary.withOpacity(0.5)),
+                                  Icon(
+                                    Icons.store_outlined,
+                                    size: 64,
+                                    color: AppTheme.textSecondary.withOpacity(
+                                      0.5,
+                                    ),
+                                  ),
                                   const SizedBox(height: 16),
-                                  Text('Không tìm thấy cửa hàng',
-                                      style: Theme.of(context).textTheme.bodyMedium),
+                                  Text(
+                                    'Không tìm thấy cửa hàng',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
                                 ],
                               ),
                             ),
@@ -295,7 +292,9 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isBlocked ? Colors.redAccent.withOpacity(0.3) : AppTheme.dividerColor,
+          color: isBlocked
+              ? Colors.redAccent.withOpacity(0.3)
+              : AppTheme.dividerColor,
         ),
       ),
       child: Column(
@@ -317,12 +316,20 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(seller.name,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text(seller.email,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppTheme.textSecondary)),
+                    Text(
+                      seller.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      seller.email,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -350,18 +357,30 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
             children: [
               const Icon(Icons.phone, size: 14, color: AppTheme.textSecondary),
               const SizedBox(width: 4),
-              Text(seller.phone,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppTheme.textSecondary)),
+              Text(
+                seller.phone,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
               const SizedBox(width: 16),
-              const Icon(Icons.location_on, size: 14, color: AppTheme.textSecondary),
+              const Icon(
+                Icons.location_on,
+                size: 14,
+                color: AppTheme.textSecondary,
+              ),
               const SizedBox(width: 4),
               Expanded(
-                child: Text(seller.address,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppTheme.textSecondary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                child: Text(
+                  seller.address,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -376,11 +395,11 @@ class _StoreManagementScreenState extends State<StoreManagementScreen> {
               ),
               const SizedBox(width: 8),
               ElevatedButton.icon(
-                onPressed: () =>
-                    _toggleStoreStatus(seller.userId, isBlocked),
+                onPressed: () => _toggleStoreStatus(seller.userId, isBlocked),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      isBlocked ? AppTheme.accentColor : Colors.redAccent,
+                  backgroundColor: isBlocked
+                      ? AppTheme.accentColor
+                      : Colors.redAccent,
                 ),
                 icon: Icon(isBlocked ? Icons.lock_open : Icons.lock, size: 16),
                 label: Text(isBlocked ? 'Kích hoạt' : 'Khóa'),

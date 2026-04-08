@@ -1,43 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-class OrderModel {
-  final String orderId;
-  final String userId;
-  final String sellerId;
-  final double totalPrice;
-  final String status; // pending, confirmed, preparing, shipping, delivered, cancelled
-  final DateTime createdAt;
-  final DateTime? deliveryDate;
-  final List<String> items;
-  final String deliveryAddress;
 
-  OrderModel({
-    required this.orderId,
-    required this.userId,
-    required this.sellerId,
-    required this.totalPrice,
-    required this.status,
-    required this.createdAt,
-    this.deliveryDate,
-    required this.items,
-    required this.deliveryAddress,
 import 'cart_item_model.dart';
 import 'product_model.dart';
 
 class OrderModel {
-  final String id;
-  final String userId;
-  final List<CartItemModel> items;
-  final double subtotal;
-  final double deliveryFee;
-  final double discount;
-  final double total;
-  final String status; // 'pending', 'confirmed', 'shipping', 'delivered', 'cancelled'
-  final DateTime createdAt;
-  final String address;
-  final String phone;
-  final String? voucherCode;
-  final String paymentMethod; // New field
-
   OrderModel({
     required this.id,
     required this.userId,
@@ -52,101 +18,161 @@ class OrderModel {
     required this.phone,
     required this.paymentMethod,
     this.voucherCode,
+    this.sellerId = '',
+    this.deliveryDate,
   });
 
+  final String id;
+  final String userId;
+  final String sellerId;
+  final List<CartItemModel> items;
+  final double subtotal;
+  final double deliveryFee;
+  final double discount;
+  final double total;
+  final String status;
+  final DateTime createdAt;
+  final DateTime? deliveryDate;
+  final String address;
+  final String phone;
+  final String paymentMethod;
+  final String? voucherCode;
+
+  String get orderId => id;
+  double get totalPrice => total;
+  String get deliveryAddress => address;
+
   Map<String, dynamic> toMap() {
-    return {
-      'orderId': orderId,
+    return <String, dynamic>{
+      'id': id,
+      'orderId': id,
       'userId': userId,
       'sellerId': sellerId,
-      'totalPrice': totalPrice,
-      'status': status,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'deliveryDate': deliveryDate != null ? Timestamp.fromDate(deliveryDate!) : null,
-      'items': items,
-      'deliveryAddress': deliveryAddress,
-    };
-  }
-
-  factory OrderModel.fromMap(Map<String, dynamic> map) {
-    return OrderModel(
-      orderId: map['orderId'] ?? '',
-      userId: map['userId'] ?? '',
-      sellerId: map['sellerId'] ?? '',
-      totalPrice: (map['totalPrice'] as num?)?.toDouble() ?? 0.0,
-      status: map['status'] ?? 'pending',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      deliveryDate: map['deliveryDate'] != null
-          ? (map['deliveryDate'] as Timestamp).toDate()
-          : null,
-      items: List<String>.from(map['items'] ?? []),
-      deliveryAddress: map['deliveryAddress'] ?? '',
-    );
-  }
-
-  OrderModel copyWith({
-    String? orderId,
-    String? userId,
-    String? sellerId,
-    double? totalPrice,
-    String? status,
-    DateTime? createdAt,
-    DateTime? deliveryDate,
-    List<String>? items,
-    String? deliveryAddress,
-  }) {
-    return OrderModel(
-      orderId: orderId ?? this.orderId,
-      userId: userId ?? this.userId,
-      sellerId: sellerId ?? this.sellerId,
-      totalPrice: totalPrice ?? this.totalPrice,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      deliveryDate: deliveryDate ?? this.deliveryDate,
-      items: items ?? this.items,
-      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
-      'id': id,
-      'userId': userId,
-      'items': items.map((e) => e.toMap()).toList(),
+      'items': items.map((CartItemModel e) => e.toMap()).toList(),
       'subtotal': subtotal,
       'deliveryFee': deliveryFee,
       'discount': discount,
       'total': total,
+      'totalPrice': total,
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
+      'deliveryDate': deliveryDate != null
+          ? Timestamp.fromDate(deliveryDate!)
+          : null,
       'address': address,
+      'deliveryAddress': address,
       'phone': phone,
-      'voucherCode': voucherCode,
       'paymentMethod': paymentMethod,
+      'voucherCode': voucherCode,
     };
   }
 
-  factory OrderModel.fromMap(Map<String, dynamic> map, String id) {
+  factory OrderModel.fromMap(Map<String, dynamic> map, [String? docId]) {
+    final List<CartItemModel> parsedItems = _parseItems(map['items']);
+    final String resolvedId =
+        docId ?? (map['id'] ?? map['orderId'] ?? '').toString();
+
     return OrderModel(
-      id: id,
-      userId: map['userId'] ?? '',
-      items: (map['items'] as List?)?.map((e) => CartItemModel(
-        product: ProductModel(
-          id: e['productId'],
-          name: e['productName'],
-          description: '',
-          price: (e['price'] ?? 0.0).toDouble(),
-          imageUrl: e['imageUrl'] ?? '',
-          category: '',
-        ),
-        quantity: e['quantity'] ?? 1,
-        note: e['note'],
-      )).toList() ?? [],
-      subtotal: (map['subtotal'] ?? 0.0).toDouble(),
-      deliveryFee: (map['deliveryFee'] ?? 0.0).toDouble(),
-      discount: (map['discount'] ?? 0.0).toDouble(),
-      total: (map['total'] ?? 0.0).toDouble(),
-      status: map['status'] ?? 'pending',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      address: map['address'] ?? '',
-      phone: map['phone'] ?? '',
-      voucherCode: map['voucherCode'],
-      paymentMethod: map['paymentMethod'] ?? 'cash',
+      id: resolvedId,
+      userId: (map['userId'] ?? '').toString(),
+      sellerId: (map['sellerId'] ?? '').toString(),
+      items: parsedItems,
+      subtotal: _toDouble(map['subtotal']),
+      deliveryFee: _toDouble(map['deliveryFee']),
+      discount: _toDouble(map['discount']),
+      total: _toDouble(map['total'], fallback: _toDouble(map['totalPrice'])),
+      status: (map['status'] ?? 'pending').toString(),
+      createdAt: _toDate(map['createdAt']),
+      deliveryDate: _toNullableDate(map['deliveryDate']),
+      address: (map['address'] ?? map['deliveryAddress'] ?? '').toString(),
+      phone: (map['phone'] ?? '').toString(),
+      paymentMethod: (map['paymentMethod'] ?? 'cash').toString(),
+      voucherCode: map['voucherCode']?.toString(),
     );
+  }
+
+  OrderModel copyWith({
+    String? id,
+    String? userId,
+    String? sellerId,
+    List<CartItemModel>? items,
+    double? subtotal,
+    double? deliveryFee,
+    double? discount,
+    double? total,
+    String? status,
+    DateTime? createdAt,
+    DateTime? deliveryDate,
+    String? address,
+    String? phone,
+    String? paymentMethod,
+    String? voucherCode,
+  }) {
+    return OrderModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      sellerId: sellerId ?? this.sellerId,
+      items: items ?? this.items,
+      subtotal: subtotal ?? this.subtotal,
+      deliveryFee: deliveryFee ?? this.deliveryFee,
+      discount: discount ?? this.discount,
+      total: total ?? this.total,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      deliveryDate: deliveryDate ?? this.deliveryDate,
+      address: address ?? this.address,
+      phone: phone ?? this.phone,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      voucherCode: voucherCode ?? this.voucherCode,
+    );
+  }
+
+  static List<CartItemModel> _parseItems(dynamic raw) {
+    if (raw is! List) {
+      return <CartItemModel>[];
+    }
+
+    return raw.whereType<Map>().map((Map<dynamic, dynamic> e) {
+      final Map<String, dynamic> item = Map<String, dynamic>.from(e);
+      return CartItemModel(
+        product: ProductModel(
+          id: (item['productId'] ?? '').toString(),
+          name: (item['productName'] ?? '').toString(),
+          description: '',
+          price: _toDouble(item['price']),
+          imageUrl: (item['imageUrl'] ?? '').toString(),
+          category: (item['category'] ?? '').toString(),
+        ),
+        quantity: (item['quantity'] as num?)?.toInt() ?? 1,
+        note: item['note']?.toString(),
+      );
+    }).toList();
+  }
+
+  static double _toDouble(dynamic value, {double fallback = 0}) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value) ?? fallback;
+    }
+    return fallback;
+  }
+
+  static DateTime _toDate(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return DateTime.now();
+  }
+
+  static DateTime? _toNullableDate(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    return _toDate(value);
   }
 }

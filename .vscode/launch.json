@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter Chrome (n8n default)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "toolArgs": [
+        "--dart-define=N8N_CHATBOT_WEBHOOK=https://otisbrother.app.n8n.cloud/webhook-test/ai-chef"
+      ]
+    },
+    {
+      "name": "Flutter Current Device (n8n default)",
+      "request": "launch",
+      "type": "dart",
+      "toolArgs": [
+        "--dart-define=N8N_CHATBOT_WEBHOOK=https://otisbrother.app.n8n.cloud/webhook-test/ai-chef"
+      ]
+    }
+  ]
+}

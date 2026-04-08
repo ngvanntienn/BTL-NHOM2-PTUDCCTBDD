@@ -1,8 +1,46 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/order_model.dart';
+import '../utils/money_utils.dart';
 
 class OrderService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Future<List<OrderModel>> _getValidOrdersForAdminStats() async {
+    final QuerySnapshot<Map<String, dynamic>> usersSnapshot = await _firestore
+        .collection('users')
+        .get();
+    final Set<String> existingUserIds = usersSnapshot.docs
+        .map((doc) => doc.id)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    final QuerySnapshot<Map<String, dynamic>> ordersSnapshot = await _firestore
+        .collection('orders')
+        .get();
+
+    final List<OrderModel> orders = <OrderModel>[];
+    for (final doc in ordersSnapshot.docs) {
+      try {
+        final OrderModel order = OrderModel.fromMap(doc.data(), doc.id);
+        final String userId = order.userId.trim();
+        final String sellerId = order.sellerId.trim();
+
+        // Ignore orphan orders whose buyer/seller account was removed.
+        if (userId.isEmpty || !existingUserIds.contains(userId)) {
+          continue;
+        }
+        if (sellerId.isNotEmpty && !existingUserIds.contains(sellerId)) {
+          continue;
+        }
+
+        orders.add(order);
+      } catch (_) {
+        // Skip malformed legacy docs instead of crashing stats.
+      }
+    }
+
+    return orders;
+  }
 
   // Get all orders - Handle empty collection
   Future<List<OrderModel>> getAllOrders() async {
@@ -11,17 +49,17 @@ class OrderService {
           .collection('orders')
           .orderBy('createdAt', descending: true)
           .get();
-      
+
       if (snapshot.docs.isEmpty) {
         return [];
       }
-      
+
       return snapshot.docs
           .map((doc) => OrderModel.fromMap(doc.data()))
           .toList();
     } catch (e) {
       // Return empty list if collection doesn't exist
-      if (e.toString().contains('no document') || 
+      if (e.toString().contains('no document') ||
           e.toString().contains('not exist') ||
           e.toString().contains('NOT_FOUND')) {
         return [];
@@ -37,7 +75,7 @@ class OrderService {
           .collection('orders')
           .orderBy('createdAt', descending: true)
           .get();
-      
+
       final filtered = snapshot.docs
           .map((doc) => OrderModel.fromMap(doc.data()))
           .where((order) => order.status == status)
@@ -50,18 +88,22 @@ class OrderService {
 
   // Get orders by date range - Filter in code
   Future<List<OrderModel>> getOrdersByDateRange(
-      DateTime startDate, DateTime endDate) async {
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     try {
       final snapshot = await _firestore
           .collection('orders')
           .orderBy('createdAt', descending: true)
           .get();
-      
+
       final filtered = snapshot.docs
           .map((doc) => OrderModel.fromMap(doc.data()))
-          .where((order) =>
-              order.createdAt.isAfter(startDate) &&
-              order.createdAt.isBefore(endDate.add(const Duration(days: 1))))
+          .where(
+            (order) =>
+                order.createdAt.isAfter(startDate) &&
+                order.createdAt.isBefore(endDate.add(const Duration(days: 1))),
+          )
           .toList();
       return filtered;
     } catch (e) {
@@ -72,16 +114,11 @@ class OrderService {
   // Get total revenue - Filter in code
   Future<double> getTotalRevenue() async {
     try {
-      final snapshot = await _firestore
-          .collection('orders')
-          .orderBy('createdAt', descending: true)
-          .get();
-      
       double total = 0;
-      for (var doc in snapshot.docs) {
-        final order = OrderModel.fromMap(doc.data());
+      final List<OrderModel> orders = await _getValidOrdersForAdminStats();
+      for (final order in orders) {
         if (order.status == 'delivered') {
-          total += order.totalPrice;
+          total += MoneyUtils.normalizeVnd(order.totalPrice);
         }
       }
       return total;
@@ -92,20 +129,17 @@ class OrderService {
 
   // Get revenue by date range - Filter in code
   Future<double> getRevenueByDateRange(
-      DateTime startDate, DateTime endDate) async {
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     try {
-      final snapshot = await _firestore
-          .collection('orders')
-          .orderBy('createdAt', descending: true)
-          .get();
-      
       double total = 0;
-      for (var doc in snapshot.docs) {
-        final order = OrderModel.fromMap(doc.data());
+      final List<OrderModel> orders = await _getValidOrdersForAdminStats();
+      for (final order in orders) {
         if (order.status == 'delivered' &&
             order.createdAt.isAfter(startDate) &&
             order.createdAt.isBefore(endDate.add(const Duration(days: 1)))) {
-          total += order.totalPrice;
+          total += MoneyUtils.normalizeVnd(order.totalPrice);
         }
       }
       return total;
@@ -117,8 +151,8 @@ class OrderService {
   // Get order count - Return 0 if collection empty
   Future<int> getOrderCount() async {
     try {
-      final snapshot = await _firestore.collection('orders').count().get();
-      return snapshot.count ?? 0;
+      final List<OrderModel> orders = await _getValidOrdersForAdminStats();
+      return orders.length;
     } catch (e) {
       // Return 0 if collection doesn't exist
       return 0;
@@ -128,13 +162,8 @@ class OrderService {
   // Get pending order count - Filter in code
   Future<int> getPendingOrderCount() async {
     try {
-      final snapshot = await _firestore
-          .collection('orders')
-          .orderBy('createdAt', descending: true)
-          .get();
-      
-      final count = snapshot.docs
-          .map((doc) => OrderModel.fromMap(doc.data()))
+      final List<OrderModel> orders = await _getValidOrdersForAdminStats();
+      final int count = orders
           .where((order) => order.status == 'pending')
           .length;
       return count;
@@ -146,10 +175,9 @@ class OrderService {
   // Update order status
   Future<void> updateOrderStatus(String orderId, String newStatus) async {
     try {
-      await _firestore
-          .collection('orders')
-          .doc(orderId)
-          .update({'status': newStatus});
+      await _firestore.collection('orders').doc(orderId).update({
+        'status': newStatus,
+      });
     } catch (e) {
       throw Exception('Failed to update order status: $e');
     }

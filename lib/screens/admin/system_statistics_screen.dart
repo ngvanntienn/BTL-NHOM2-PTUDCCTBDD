@@ -8,8 +8,7 @@ class SystemStatisticsScreen extends StatefulWidget {
   const SystemStatisticsScreen({super.key});
 
   @override
-  State<SystemStatisticsScreen> createState() =>
-      _SystemStatisticsScreenState();
+  State<SystemStatisticsScreen> createState() => _SystemStatisticsScreenState();
 }
 
 class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
@@ -29,13 +28,13 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
 
       // Load users safely
       try {
-        totalUsers = await _userService.getUserCount();
+        totalUsers = await _userService.getManagedUserCount();
       } catch (e) {
         print('Error loading user count: $e');
       }
 
       try {
-        activeUsers = await _userService.getActiveUsersCount();
+        activeUsers = await _userService.getManagedActiveUsersCount();
       } catch (e) {
         print('Error loading active users: $e');
       }
@@ -63,8 +62,10 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
       try {
         final now = DateTime.now();
         final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-        monthlyRevenue =
-            await _orderService.getRevenueByDateRange(thirtyDaysAgo, now);
+        monthlyRevenue = await _orderService.getRevenueByDateRange(
+          thirtyDaysAgo,
+          now,
+        );
       } catch (e) {
         print('Error loading monthly revenue: $e');
       }
@@ -95,8 +96,10 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Thống kê Hệ thống',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Thống kê Hệ thống',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppTheme.textPrimary),
@@ -113,9 +116,11 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline,
-                      size: 64,
-                      color: AppTheme.textSecondary.withOpacity(0.5)),
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: AppTheme.textSecondary.withOpacity(0.5),
+                  ),
                   const SizedBox(height: 16),
                   Text('Lỗi: ${snapshot.error}'),
                 ],
@@ -134,7 +139,10 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
                 const Text(
                   'Tổng quan Hệ thống',
                   style: TextStyle(
-                      fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 24),
 
@@ -188,18 +196,24 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
                       const Text(
                         'Doanh số',
                         style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 20),
                       _buildRevenueRow(
                         'Doanh số tổng',
-                        _formatCurrency(stats['totalRevenue'] as double? ?? 0.0),
+                        _formatCurrency(
+                          stats['totalRevenue'] as double? ?? 0.0,
+                        ),
                         Colors.blueAccent,
                       ),
                       const SizedBox(height: 16),
                       _buildRevenueRow(
                         'Doanh số 30 ngày',
-                        _formatCurrency(stats['monthlyRevenue'] as double? ?? 0.0),
+                        _formatCurrency(
+                          stats['monthlyRevenue'] as double? ?? 0.0,
+                        ),
                         AppTheme.accentColor,
                       ),
                     ],
@@ -238,13 +252,17 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
                             const Text(
                               'Danh mục Món ăn',
                               style: TextStyle(
-                                  fontSize: 14, color: AppTheme.textSecondary),
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${stats['categoryCount'] ?? 0}',
                               style: const TextStyle(
-                                  fontSize: 28, fontWeight: FontWeight.bold),
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -309,14 +327,18 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
               Text(
                 title,
                 style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.w500),
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 value,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -334,16 +356,10 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(color: AppTheme.textSecondary),
-            ),
+            Text(label, style: const TextStyle(color: AppTheme.textSecondary)),
           ],
         ),
         Text(
@@ -373,7 +389,9 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Tính năng sẽ được thêm trong phiên bản tiếp theo'),
+                  content: Text(
+                    'Tính năng sẽ được thêm trong phiên bản tiếp theo',
+                  ),
                   backgroundColor: AppTheme.accentColor,
                 ),
               );
@@ -383,7 +401,9 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Tính năng sẽ được thêm trong phiên bản tiếp theo'),
+                  content: Text(
+                    'Tính năng sẽ được thêm trong phiên bản tiếp theo',
+                  ),
                   backgroundColor: AppTheme.accentColor,
                 ),
               );
@@ -403,10 +423,7 @@ class _SystemStatisticsScreenState extends State<SystemStatisticsScreen> {
   Widget _buildExportButton(String label, VoidCallback onPressed) {
     return SizedBox(
       width: double.infinity,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        child: Text(label),
-      ),
+      child: OutlinedButton(onPressed: onPressed, child: Text(label)),
     );
   }
 }

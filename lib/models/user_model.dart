@@ -35,6 +35,11 @@ class UserModel {
   }
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
+    final dynamic createdAtRaw = map['createdAt'];
+    final DateTime createdAt = createdAtRaw is Timestamp
+        ? createdAtRaw.toDate()
+        : DateTime.now();
+
     return UserModel(
       userId: map['userId'] ?? '',
       name: map['name'] ?? '',
@@ -42,7 +47,7 @@ class UserModel {
       role: map['role'] ?? 'user',
       phone: map['phone'] ?? '',
       address: map['address'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      createdAt: createdAt,
       isDisabled: map['isDisabled'] ?? false,
     );
   }

@@ -1,7 +1,10 @@
+﻿import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../app_routes.dart';
 import '../../services/n8n_chatbot_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -55,9 +58,50 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   String _formatPrice(double price) {
     if (price <= 0) {
-      return 'Gia dang cap nhat';
+      return 'Giá đang cập nhật';
     }
     return '${price.toStringAsFixed(0)}d';
+  }
+
+  String _repairText(String input) {
+    final String trimmed = input.trim();
+    if (trimmed.isEmpty) {
+      return input;
+    }
+
+    String decodeMixedLatin1Utf8(String source) {
+      final StringBuffer out = StringBuffer();
+      final List<int> chunk = <int>[];
+
+      void flush() {
+        if (chunk.isEmpty) {
+          return;
+        }
+        try {
+          out.write(utf8.decode(chunk));
+        } catch (_) {
+          out.write(String.fromCharCodes(chunk));
+        }
+        chunk.clear();
+      }
+
+      for (final int codeUnit in source.codeUnits) {
+        if (codeUnit <= 255) {
+          chunk.add(codeUnit);
+        } else {
+          flush();
+          out.writeCharCode(codeUnit);
+        }
+      }
+      flush();
+
+      return out.toString();
+    }
+
+    // Run two passes to fix both single and nested mojibake cases.
+    final String pass1 = decodeMixedLatin1Utf8(input);
+    final String pass2 = decodeMixedLatin1Utf8(pass1);
+    return pass2;
   }
 
   List<Map<String, dynamic>> _normalizeSuggestions(dynamic raw) {
@@ -71,6 +115,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         continue;
       }
 
+      final String foodId =
+          (element['foodId'] ?? element['id'] ?? element['food_id'] ?? '')
+              .toString();
       final String name = (element['name'] ?? 'Mon goi y').toString();
       final String category = (element['category'] ?? '').toString();
       final String reason = (element['reason'] ?? '').toString();
@@ -82,6 +129,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           : 0;
 
       items.add(<String, dynamic>{
+        'foodId': foodId,
         'name': name,
         'category': category,
         'reason': reason,
@@ -165,7 +213,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       );
       return <String, dynamic>{
         'role': (data['role'] ?? 'bot').toString(),
-        'text': (data['text'] ?? '').toString(),
+        'text': _repairText((data['text'] ?? '').toString()),
         'time': _formatTime(createdAt),
         'hasCard': data['hasCard'] == true || suggestions.isNotEmpty,
         'foodSuggestions': suggestions,
@@ -210,10 +258,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     bool hasCard = false,
     List<Map<String, dynamic>> foodSuggestions = const <Map<String, dynamic>>[],
   }) async {
+    final String fixedText = _repairText(text);
     setState(() {
       _messages.add(<String, dynamic>{
         'role': role,
-        'text': text,
+        'text': fixedText,
         'time': _formatTime(DateTime.now()),
         'hasCard': hasCard,
         'foodSuggestions': foodSuggestions,
@@ -222,7 +271,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     _scrollToBottom();
     await _persistMessage(
       role: role,
-      text: text,
+      text: fixedText,
       hasCard: hasCard,
       foodSuggestions: foodSuggestions,
     );
@@ -318,7 +367,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       itemBuilder: (context, index) {
                         final Map<String, dynamic> data = docs[index].data();
                         final String role = (data['role'] ?? 'bot').toString();
-                        final String text = (data['text'] ?? '').toString();
+                        final String text = _repairText(
+                          (data['text'] ?? '').toString(),
+                        );
                         final DateTime createdAt =
                             (data['createdAt'] as Timestamp?)?.toDate() ??
                             DateTime.now();
@@ -382,15 +433,145 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   String _fallbackReply(String input) {
     final String l = input.toLowerCase();
     if (l.contains('ăn gì') || l.contains('gợi ý') || l.contains('đề xuất')) {
-      return 'Tuyet voi! Toi da nhan yeu cau goi y mon cho ban. Ban mo ta them ngan sach hoac so nguoi an nhe.';
+      return 'Tuyệt vời! Tôi đã nhận yêu cầu gợi ý món cho bạn. Bạn mô tả thêm ngân sách hoặc số người ăn nhé.';
     }
     if (l.contains('ship') || l.contains('giao hàng')) {
-      return 'Phi giao hang thuong tu 10.000d den 25.000d. Don tren 150.000d co the duoc freeship tuy khu vuc.';
+      return 'Phí giao hàng thường từ 10.000đ đến 25.000đ. Đơn trên 150.000đ có thể được freeship tùy khu vực.';
     }
     if (l.contains('voucher') || l.contains('mã giảm')) {
-      return 'Ban vao Ho so > Vi va Khuyen mai de xem ma giam gia hien co.';
+      return 'Bạn vào Hồ sơ > Ví và Khuyến mãi để xem mã giảm giá hiện có.';
     }
-    return 'Toi dang xu ly theo kieu du phong. Ban thu hoi: goi y combo cho 2 nguoi, tim mon cay, hoac mon dang trend.';
+    return 'Tôi đang xử lý theo kiểu dự phòng. Bạn thử hỏi: gợi ý combo cho 2 người, tìm món cay, hoặc món đang trend.';
+  }
+
+  Map<String, dynamic> _mapFoodToSuggestion(Map<String, dynamic> data) {
+    final String foodId = (data['foodId'] ?? data['id'] ?? '').toString();
+    final String name = (data['name'] ?? 'Món').toString();
+    final String category = (data['category'] ?? '').toString();
+    final String reason = (data['description'] ?? '').toString();
+    final double price = (data['price'] is num)
+        ? (data['price'] as num).toDouble()
+        : 0;
+    final double rating = (data['rating'] is num)
+        ? (data['rating'] as num).toDouble()
+        : 0;
+
+    return <String, dynamic>{
+      'foodId': foodId,
+      'name': name,
+      'category': category,
+      'reason': reason,
+      'price': price,
+      'rating': rating,
+    };
+  }
+
+  Future<Map<String, dynamic>> _smartFallbackReply(String input) async {
+    final String l = input.toLowerCase();
+
+    if (l.contains('voucher') ||
+        l.contains('mã giảm') ||
+        l.contains('khuyến mãi')) {
+      final QuerySnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+          .instance
+          .collection('vouchers')
+          .where('isActive', isEqualTo: true)
+          .limit(3)
+          .get();
+
+      if (snap.docs.isEmpty) {
+        return <String, dynamic>{
+          'reply':
+              'Hiện chưa có voucher khả dụng. Bạn có thể quay lại mục Ví và Khuyến mãi để kiểm tra sau.',
+          'suggestions': <Map<String, dynamic>>[],
+        };
+      }
+
+      final List<String> codes = snap.docs
+          .map((d) => (d.data()['code'] ?? '').toString())
+          .where((c) => c.trim().isNotEmpty)
+          .toList();
+      return <String, dynamic>{
+        'reply':
+            'Voucher đang có: ${codes.join(', ')}. Bạn có thể áp dụng tại bước thanh toán.',
+        'suggestions': <Map<String, dynamic>>[],
+      };
+    }
+
+    if (l.contains('gợi ý') ||
+        l.contains('combo') ||
+        l.contains('ăn gì') ||
+        l.contains('đề xuất') ||
+        l.contains('trend') ||
+        l.contains('cay')) {
+      final QuerySnapshot<Map<String, dynamic>> sellersSnap =
+          await FirebaseFirestore.instance.collection('users').get();
+      final Set<String> activeSellerIds = sellersSnap.docs
+          .where((doc) {
+            final Map<String, dynamic> data = doc.data();
+            final String role = (data['role'] ?? '').toString();
+            final bool isDisabled = (data['isDisabled'] as bool?) ?? false;
+            return role == 'seller' && !isDisabled;
+          })
+          .map((doc) => doc.id)
+          .toSet();
+
+      final QuerySnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+          .instance
+          .collection('foods')
+          .where('isAvailable', isEqualTo: true)
+          .limit(40)
+          .get();
+
+      final List<Map<String, dynamic>> suggestions = snap.docs
+          .map((doc) {
+            final Map<String, dynamic> data = doc.data();
+            data['foodId'] = doc.id;
+            return data;
+          })
+          .where((data) {
+            final String sellerId = (data['sellerId'] ?? '').toString();
+            return sellerId.isNotEmpty && activeSellerIds.contains(sellerId);
+          })
+          .take(5)
+          .map(_mapFoodToSuggestion)
+          .toList();
+
+      if (suggestions.isEmpty) {
+        return <String, dynamic>{
+          'reply':
+              'Hiện chưa có món nào từ cửa hàng đang bán để gợi ý cho bạn.',
+          'suggestions': <Map<String, dynamic>>[],
+        };
+      }
+
+      final List<String> top = suggestions
+          .take(3)
+          .map(
+            (s) =>
+                '${s['name']} (${_formatPrice((s['price'] as num?)?.toDouble() ?? 0)})',
+          )
+          .toList();
+
+      return <String, dynamic>{
+        'reply':
+            'Gợi ý từ các cửa hàng đang bán: ${top.join(', ')}. Bạn có thể xem chi tiết trong phần gợi ý dưới đây.',
+        'suggestions': suggestions,
+      };
+    }
+
+    if (l.contains('đơn') || l.contains('order') || l.contains('trạng thái')) {
+      return <String, dynamic>{
+        'reply':
+            'Bạn có thể xem trạng thái đơn ở mục Lịch sử đơn hàng. Nếu cần, mình sẽ hướng dẫn theo từng trạng thái: chờ xác nhận, đang chuẩn bị, đang giao, đã giao.',
+        'suggestions': <Map<String, dynamic>>[],
+      };
+    }
+
+    return <String, dynamic>{
+      'reply': _fallbackReply(input),
+      'suggestions': <Map<String, dynamic>>[],
+    };
   }
 
   Future<void> _send(String text) async {
@@ -427,16 +608,21 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       return;
     }
 
-    final String lower = cleaned.toLowerCase();
-    final bool showCard =
-        lower.contains('gợi ý') ||
-        lower.contains('ăn gì') ||
-        lower.contains('đề xuất') ||
-        lower.contains('trend');
+    String fallback;
+    List<Map<String, dynamic>> fallbackSuggestions = <Map<String, dynamic>>[];
+    try {
+      final result = await _smartFallbackReply(cleaned);
+      fallback = (result['reply'] ?? '').toString();
+      fallbackSuggestions = _normalizeSuggestions(result['suggestions']);
+    } catch (_) {
+      fallback = _fallbackReply(cleaned);
+    }
+
     await _appendMessage(
       role: 'bot',
-      text: _fallbackReply(cleaned),
-      hasCard: showCard,
+      text: fallback,
+      hasCard: fallbackSuggestions.isNotEmpty,
+      foodSuggestions: fallbackSuggestions,
     );
   }
 
@@ -507,8 +693,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 ),
                 Text(
                   _n8nService.isConfigured
-                      ? 'n8n AI dang ket noi'
-                      : 'Che do du phong (rule-based)',
+                      ? 'n8n AI đang kết nối'
+                      : 'Chế độ dự phòng (rule-based)',
                   style: const TextStyle(
                     color: Color(0xFF4CAF50),
                     fontSize: 11,
@@ -562,13 +748,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                                   msg['text'] as String,
                                   msg['time'] as String,
                                 ),
-                          if (isBot &&
-                              (msg['hasCard'] == true ||
-                                  suggestions.isNotEmpty)) ...[
+                          if (isBot && suggestions.isNotEmpty) ...[
                             const SizedBox(height: 8),
-                            suggestions.isNotEmpty
-                                ? _foodSuggestionsRow(suggestions)
-                                : _foodCard(),
+                            _foodSuggestionsRow(suggestions),
                           ],
                         ],
                       );
@@ -584,8 +766,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       scrollDirection: Axis.horizontal,
                       children: [
                         _chip('Goi y combo cho 2 nguoi budget 200k'),
-                        _chip('Tim mon it cay, de an buoi toi'),
-                        _chip('Mon nao dang trend hom nay?'),
+                        _chip('Tìm món ít cay, dễ ăn buổi tối'),
+                        _chip('Món nào đang trend hôm nay?'),
                       ],
                     ),
                   ),
@@ -753,16 +935,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
-  Widget _foodCard() {
-    return _foodSuggestionCard(const <String, dynamic>{
-      'name': 'Combo Pho Dac Biet',
-      'rating': 4.8,
-      'price': 125000,
-      'reason': 'Goi y mac dinh khi chua nhan duoc du lieu tu n8n.',
-      'category': 'Pho',
-    });
-  }
-
   Widget _foodSuggestionsRow(List<Map<String, dynamic>> suggestions) {
     return Align(
       alignment: Alignment.centerLeft,
@@ -781,6 +953,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   Widget _foodSuggestionCard(Map<String, dynamic> suggestion) {
+    final String foodId = (suggestion['foodId'] ?? '').toString();
     final String name = (suggestion['name'] ?? 'Mon goi y').toString();
     final String category = (suggestion['category'] ?? '').toString();
     final String reason = (suggestion['reason'] ?? '').toString();
@@ -791,115 +964,131 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         ? (suggestion['price'] as num).toDouble()
         : 0;
 
-    return Container(
-      width: 240,
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Container(
-              height: 64,
-              color: const Color(0xFFF6F6F6),
-              child: Row(
-                children: [
-                  const SizedBox(width: 10),
-                  const Icon(
-                    Icons.local_fire_department_rounded,
-                    color: AppTheme.primaryColor,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      category.isEmpty ? 'Combo de xuat' : category,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        if (foodId.isEmpty) {
+          _showSnack('Món này chưa có liên kết mua trực tiếp.');
+          return;
+        }
+        Navigator.pushNamed(
+          context,
+          AppRoutes.foodDetail,
+          arguments: FoodDetailRouteArgs(foodId: foodId),
+        );
+      },
+      child: Container(
+        width: 240,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+              child: Container(
+                height: 64,
+                color: const Color(0xFFF6F6F6),
+                child: Row(
                   children: [
+                    const SizedBox(width: 10),
+                    const Icon(
+                      Icons.local_fire_department_rounded,
+                      color: AppTheme.primaryColor,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        category.isEmpty ? 'Combo de xuat' : category,
                         style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    if (rating > 0)
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            color: Colors.amber,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            rating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatPrice(price),
-                  style: const TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      if (rating > 0)
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              color: Colors.amber,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              rating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
-                ),
-                if (reason.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
-                    reason,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    _formatPrice(price),
                     style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                      height: 1.4,
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
                     ),
                   ),
+                  if (reason.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      reason,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

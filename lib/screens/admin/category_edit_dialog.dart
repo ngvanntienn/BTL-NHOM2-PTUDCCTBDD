@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../theme/app_theme.dart';
-import '../../services/category_service.dart';
 import '../../models/category_model.dart';
+import '../../services/image_upload_service.dart';
 
 class CategoryEditDialog extends StatefulWidget {
   final CategoryModel? category;
@@ -20,20 +21,28 @@ class CategoryEditDialog extends StatefulWidget {
 class _CategoryEditDialogState extends State<CategoryEditDialog> {
   late TextEditingController _nameController;
   late TextEditingController _imageUrlController;
+  final ImageUploadService _imageUploadService = ImageUploadService();
   bool _isSaving = false;
-  final CategoryService _categoryService = CategoryService();
+  bool _isUploadingImage = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.category != null) {
       _nameController = TextEditingController(text: widget.category!.name);
-      _imageUrlController =
-          TextEditingController(text: widget.category!.imageUrl);
+      _imageUrlController = TextEditingController(
+        text: widget.category!.imageUrl,
+      );
     } else {
       _nameController = TextEditingController();
       _imageUrlController = TextEditingController();
     }
+
+    _imageUrlController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -107,10 +116,7 @@ class _CategoryEditDialogState extends State<CategoryEditDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
+          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -118,12 +124,56 @@ class _CategoryEditDialogState extends State<CategoryEditDialog> {
     }
   }
 
+  Future<void> _pickAndUploadImage() async {
+    if (_isUploadingImage || _isSaving) {
+      return;
+    }
+
+    final XFile? file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 82,
+      maxWidth: 1600,
+    );
+    if (file == null) {
+      return;
+    }
+
+    setState(() => _isUploadingImage = true);
+    try {
+      final String imageUrl = await _imageUploadService.uploadCategoryImage(
+        file,
+      );
+      _imageUrlController.text = imageUrl;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tải ảnh danh mục lên cloud thành công'),
+            backgroundColor: AppTheme.accentColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload ảnh thất bại: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingImage = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.category == null
-          ? 'Thêm danh mục'
-          : 'Chỉnh sửa danh mục'),
+      title: Text(
+        widget.category == null ? 'Thêm danh mục' : 'Chỉnh sửa danh mục',
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -144,22 +194,40 @@ class _CategoryEditDialogState extends State<CategoryEditDialog> {
               ),
               maxLines: 2,
             ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isUploadingImage ? null : _pickAndUploadImage,
+                icon: _isUploadingImage
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.cloud_upload_outlined),
+                label: Text(
+                  _isUploadingImage
+                      ? 'Đang tải ảnh lên cloud...'
+                      : 'Chọn ảnh từ thiết bị',
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             if (_imageUrlController.text.isNotEmpty)
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   height: 150,
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundColor,
-                  ),
+                  decoration: BoxDecoration(color: AppTheme.backgroundColor),
                   child: Image.network(
                     _imageUrlController.text,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Center(
-                      child: Icon(Icons.broken_image,
-                          color: AppTheme.textSecondary),
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Icon(
+                        Icons.broken_image,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                   ),
                 ),

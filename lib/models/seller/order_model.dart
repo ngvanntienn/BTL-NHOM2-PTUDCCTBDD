@@ -130,17 +130,21 @@ class OrderModel {
   }
 
   factory OrderModel.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final Map<String, dynamic> data = doc.data() ?? <String, dynamic>{};
+    return OrderModel.fromMap(doc.id, doc.data() ?? <String, dynamic>{});
+  }
 
+  factory OrderModel.fromMap(String id, Map<String, dynamic> data) {
     final List<dynamic> rawItems =
         (data['items'] as List<dynamic>?) ?? <dynamic>[];
     final List<OrderItemModel> items = rawItems
-        .whereType<Map<String, dynamic>>()
-        .map(OrderItemModel.fromMap)
+        .whereType<Map>()
+        .map(
+          (Map item) => OrderItemModel.fromMap(Map<String, dynamic>.from(item)),
+        )
         .toList();
 
     return OrderModel(
-      id: doc.id,
+      id: id,
       userId: (data['userId'] ?? '').toString(),
       sellerId: (data['sellerId'] ?? '').toString(),
       userName: (data['userName'] ?? '').toString(),

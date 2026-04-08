@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../models/seller/order_model.dart';
 import '../../repositories/order_repository.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/money_utils.dart';
 
 class OrderManagementScreen extends StatefulWidget {
   const OrderManagementScreen({super.key});
@@ -14,6 +16,10 @@ class OrderManagementScreen extends StatefulWidget {
 
 class _OrderManagementScreenState extends State<OrderManagementScreen> {
   final OrderRepository _orderRepository = OrderRepository();
+  final NumberFormat _currencyFormat = NumberFormat.currency(
+    locale: 'vi_VN',
+    symbol: 'đ',
+  );
   OrderStatus? _filter;
   final Set<String> _updatingOrderIds = <String>{};
 
@@ -41,7 +47,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Khong the cap nhat don: $e')));
+      ).showSnackBar(SnackBar(content: Text('Không thể cập nhật đơn: $e')));
     } finally {
       if (mounted) {
         setState(() => _updatingOrderIds.remove(orderId));
@@ -65,11 +71,11 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Huy'),
+              child: const Text('Hủy'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Xac nhan'),
+              child: const Text('Xác nhận'),
             ),
           ],
         );
@@ -216,12 +222,12 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text('Khách: ${order.userName} • ${order.userPhone}'),
+          Text('Khách: ${order.userName} - ${order.userPhone}'),
           const SizedBox(height: 4),
           Text('Địa chỉ: ${order.shippingAddress}'),
           const SizedBox(height: 10),
           Text(
-            'Tổng tiền: ${order.totalPrice.toStringAsFixed(0)} VND',
+            'Tổng tiền: ${MoneyUtils.formatVnd(_currencyFormat, order.totalPrice)}',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
@@ -248,12 +254,12 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
             onPressed: isUpdating
                 ? null
                 : () => _confirmAndRun(
-                    title: 'Nhan don hang',
+                    title: 'Nhận đơn hàng',
                     message:
-                        'Ban chac chan muon nhan don nay? He thong se tru ton kho theo so luong trong don.',
+                        'Bạn chắc chắn muốn nhận đơn này? Hệ thống sẽ trừ tồn kho theo số lượng trong đơn.',
                     orderId: order.id,
                     action: () => _orderRepository.acceptOrder(order.id),
-                    successMessage: 'Da nhan don thanh cong.',
+                    successMessage: 'Đã nhận đơn thành công.',
                   ),
             child: const Text('Nhận đơn'),
           ),
@@ -261,11 +267,11 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
             onPressed: isUpdating
                 ? null
                 : () => _confirmAndRun(
-                    title: 'Tu choi don hang',
-                    message: 'Ban chac chan muon tu choi don nay?',
+                    title: 'Từ chối đơn hàng',
+                    message: 'Bạn chắc chắn muốn từ chối đơn này?',
                     orderId: order.id,
                     action: () => _orderRepository.rejectOrder(order.id),
-                    successMessage: 'Da tu choi don.',
+                    successMessage: 'Đã từ chối đơn.',
                   ),
             child: const Text('Từ chối'),
           ),
@@ -281,7 +287,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                       orderId: order.id,
                       status: OrderStatus.preparing,
                     ),
-                    successMessage: 'Don dang o trang thai chuan bi.',
+                    successMessage: 'Đơn đang ở trạng thái chuẩn bị.',
                   ),
             child: const Text('Đang chuẩn bị'),
           ),
@@ -289,11 +295,11 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
             onPressed: isUpdating
                 ? null
                 : () => _confirmAndRun(
-                    title: 'Tu choi don hang',
-                    message: 'Ban chac chan muon tu choi don nay?',
+                    title: 'Từ chối đơn hàng',
+                    message: 'Bạn chắc chắn muốn từ chối đơn này?',
                     orderId: order.id,
                     action: () => _orderRepository.rejectOrder(order.id),
-                    successMessage: 'Da tu choi don.',
+                    successMessage: 'Đã từ chối đơn.',
                   ),
             child: const Text('Từ chối'),
           ),
@@ -309,7 +315,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                       orderId: order.id,
                       status: OrderStatus.shipping,
                     ),
-                    successMessage: 'Don da chuyen sang dang giao.',
+                    successMessage: 'Đơn đã chuyển sang đang giao.',
                   ),
             child: const Text('Đang giao'),
           ),
@@ -317,11 +323,11 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
             onPressed: isUpdating
                 ? null
                 : () => _confirmAndRun(
-                    title: 'Tu choi don hang',
-                    message: 'Ban chac chan muon tu choi don nay?',
+                    title: 'Từ chối đơn hàng',
+                    message: 'Bạn chắc chắn muốn từ chối đơn này?',
                     orderId: order.id,
                     action: () => _orderRepository.rejectOrder(order.id),
-                    successMessage: 'Da tu choi don.',
+                    successMessage: 'Đã từ chối đơn.',
                   ),
             child: const Text('Từ chối'),
           ),
@@ -337,7 +343,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                       orderId: order.id,
                       status: OrderStatus.delivered,
                     ),
-                    successMessage: 'Don da giao thanh cong.',
+                    successMessage: 'Đơn đã giao thành công.',
                   ),
             child: const Text('Đã giao'),
           ),
@@ -345,14 +351,14 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
             onPressed: isUpdating
                 ? null
                 : () => _confirmAndRun(
-                    title: 'Huy don hang',
-                    message: 'Ban chac chan muon huy don dang giao nay?',
+                    title: 'Hủy đơn hàng',
+                    message: 'Bạn chắc chắn muốn hủy đơn đang giao này?',
                     orderId: order.id,
                     action: () => _orderRepository.updateOrderStatus(
                       orderId: order.id,
                       status: OrderStatus.cancelled,
                     ),
-                    successMessage: 'Da huy don.',
+                    successMessage: 'Đã hủy đơn.',
                   ),
             child: const Text('Hủy đơn'),
           ),

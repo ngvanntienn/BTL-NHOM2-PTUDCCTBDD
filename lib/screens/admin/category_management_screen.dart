@@ -19,22 +19,20 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   @override
   void initState() {
     super.initState();
-    _reloadData();
-    _searchController.addListener(() => setState(() {}));
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Reload data when screen comes back into focus
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _reloadData();
+      if (mounted) {
+        _reloadData();
+      }
     });
+    _searchController.addListener(() => setState(() {}));
   }
 
   Future<void> _reloadData() async {
     if (mounted) {
-      await Provider.of<CategoryProvider>(context, listen: false).loadCategories();
+      await Provider.of<CategoryProvider>(
+        context,
+        listen: false,
+      ).loadCategories();
     }
   }
 
@@ -45,7 +43,9 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   }
 
   // Compute filtered categories dynamically
-  List<CategoryModel> _getFilteredCategories(List<CategoryModel> allCategories) {
+  List<CategoryModel> _getFilteredCategories(
+    List<CategoryModel> allCategories,
+  ) {
     final query = _searchController.text.toLowerCase();
     if (query.isEmpty) return allCategories;
     return allCategories.where((category) {
@@ -59,38 +59,38 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
       builder: (context) => CategoryEditDialog(
         category: category,
         onSave: (updatedCategory) async {
-          final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+          final categoryProvider = Provider.of<CategoryProvider>(
+            context,
+            listen: false,
+          );
           try {
             if (category != null) {
               // UPDATE: Optimistic update first
-              print('[CategoryManagement] UPDATE optimistic for ${category.categoryId}');
               categoryProvider.updateCategoryOptimistically(updatedCategory);
-              
-              // Then persist to Firestore  
+
+              // Then persist to Firestore
               await categoryProvider.updateCategory(category.categoryId, {
                 'name': updatedCategory.name,
                 'imageUrl': updatedCategory.imageUrl,
               });
-              print('[CategoryManagement] UPDATE persisted successfully');
             } else {
               // ADD: Optimistic add first with temp ID
               final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
               final tempCategory = updatedCategory.copyWith(categoryId: tempId);
-              
-              print('[CategoryManagement] ADD optimistic with temp ID: $tempId');
+
               categoryProvider.addCategoryOptimistically(tempCategory);
-              
+
               // Then persist to Firestore and get real ID
-              final realId = await categoryProvider.createCategory(tempCategory);
-              print('[CategoryManagement] ADD persisted with real ID: $realId');
-              
+              final realId = await categoryProvider.createCategory(
+                tempCategory,
+              );
+
               // Provider already replaced temp with real ID internally,
               // but ensure it's correct by updating
               final realCategory = updatedCategory.copyWith(categoryId: realId);
               categoryProvider.updateCategoryOptimistically(realCategory);
             }
           } catch (e) {
-            print('[CategoryManagement] Error: $e');
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -110,8 +110,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xác nhận xóa'),
-        content:
-            Text('Bạn có chắc chắn muốn xóa danh mục "$categoryName"?'),
+        content: Text('Bạn có chắc chắn muốn xóa danh mục "$categoryName"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -121,9 +120,12 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
               Navigator.pop(context);
-              
-              final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
-              
+
+              final categoryProvider = Provider.of<CategoryProvider>(
+                context,
+                listen: false,
+              );
+
               try {
                 // Optimistic delete
                 categoryProvider.deleteCategoryOptimistically(categoryId);
@@ -164,8 +166,10 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Quản lý Danh mục Món ăn',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Quản lý Danh mục Món ăn',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppTheme.textPrimary),
@@ -184,16 +188,20 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Tìm kiếm danh mục...',
-                prefixIcon:
-                    const Icon(Icons.search, color: AppTheme.textSecondary),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: AppTheme.textSecondary,
+                ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? GestureDetector(
                         onTap: () {
                           _searchController.clear();
                           setState(() {});
                         },
-                        child: const Icon(Icons.clear,
-                            color: AppTheme.textSecondary),
+                        child: const Icon(
+                          Icons.clear,
+                          color: AppTheme.textSecondary,
+                        ),
                       )
                     : null,
               ),
@@ -203,12 +211,14 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
             child: Consumer<CategoryProvider>(
               builder: (context, categoryProvider, child) {
                 // Dynamically compute filtered list based on provider data + search
-                final filteredCategories = _getFilteredCategories(categoryProvider.allCategories);
-                
+                final filteredCategories = _getFilteredCategories(
+                  categoryProvider.allCategories,
+                );
+
                 if (categoryProvider.isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                
+
                 // Pull-to-refresh wrapper
                 return RefreshIndicator(
                   onRefresh: _reloadData,
@@ -223,12 +233,20 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   const SizedBox(height: 100),
-                                  Icon(Icons.category_outlined,
-                                      size: 64,
-                                      color: AppTheme.textSecondary.withOpacity(0.5)),
+                                  Icon(
+                                    Icons.category_outlined,
+                                    size: 64,
+                                    color: AppTheme.textSecondary.withOpacity(
+                                      0.5,
+                                    ),
+                                  ),
                                   const SizedBox(height: 16),
-                                  Text('Không tìm thấy danh mục',
-                                      style: Theme.of(context).textTheme.bodyMedium),
+                                  Text(
+                                    'Không tìm thấy danh mục',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
                                 ],
                               ),
                             ),
@@ -278,9 +296,10 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                       ? Image.network(
                           category.imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Icon(Icons.image_not_supported,
-                                  color: AppTheme.textSecondary),
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            Icons.image_not_supported,
+                            color: AppTheme.textSecondary,
+                          ),
                         )
                       : Icon(
                           Icons.category,
@@ -294,13 +313,19 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(category.name,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      category.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.accentColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -330,7 +355,8 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
-                onPressed: () => _deleteCategory(category.categoryId, category.name),
+                onPressed: () =>
+                    _deleteCategory(category.categoryId, category.name),
                 icon: const Icon(Icons.delete, size: 16),
                 label: const Text('Xóa'),
                 style: OutlinedButton.styleFrom(

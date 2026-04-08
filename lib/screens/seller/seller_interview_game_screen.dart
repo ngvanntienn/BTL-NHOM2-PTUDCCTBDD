@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../app_routes.dart';
 import '../login_screen.dart';
 import '../../services/firestore_schema.dart';
 import '../../theme/app_theme.dart';
@@ -35,6 +36,7 @@ class _SellerInterviewGameScreenState extends State<SellerInterviewGameScreen> {
   bool _isSaving = false;
   late final DateTime _startedAt;
   final Map<String, int> _selectedOptionByQuestionId = <String, int>{};
+  bool _didNavigateAfterPass = false;
 
   @override
   void initState() {
@@ -62,12 +64,29 @@ class _SellerInterviewGameScreenState extends State<SellerInterviewGameScreen> {
       setState(() => _isFinished = true);
       if (widget.requireCompletionBeforeContinue && mounted) {
         widget.onCompleted?.call(passed);
+        if (passed && widget.onCompleted == null) {
+          _goToSellerHome();
+        }
       }
       unawaited(_saveAttempt());
       return;
     }
 
     setState(() => _currentIndex += 1);
+  }
+
+  void _goToSellerHome() {
+    if (!mounted || _didNavigateAfterPass) {
+      return;
+    }
+
+    _didNavigateAfterPass = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.pushReplacementNamed(context, AppRoutes.sellerHome);
+    });
   }
 
   Future<void> _saveAttempt() async {
@@ -332,6 +351,14 @@ class _SellerInterviewGameScreenState extends State<SellerInterviewGameScreen> {
             style: const TextStyle(color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 14),
+          if (passed && widget.requireCompletionBeforeContinue) ...<Widget>[
+            FilledButton.icon(
+              onPressed: _goToSellerHome,
+              icon: const Icon(Icons.storefront),
+              label: const Text('Vào trang seller'),
+            ),
+            const SizedBox(height: 10),
+          ],
           Row(
             children: <Widget>[
               Expanded(

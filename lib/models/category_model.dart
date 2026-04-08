@@ -26,11 +26,16 @@ class CategoryModel {
   }
 
   factory CategoryModel.fromMap(Map<String, dynamic> map) {
+    final dynamic createdAtRaw = map['createdAt'];
+    final DateTime createdAt = createdAtRaw is Timestamp
+        ? createdAtRaw.toDate()
+        : DateTime.now();
+
     return CategoryModel(
       categoryId: map['categoryId'] ?? '',
       name: map['name'] ?? '',
       imageUrl: map['imageUrl'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      createdAt: createdAt,
       foodCount: map['foodCount'] ?? 0,
     );
   }

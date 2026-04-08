@@ -5,7 +5,6 @@ import '../user_tabs/home_tab.dart';
 import '../user_tabs/search_tab.dart';
 import '../user_tabs/cart_tab.dart';
 import '../user_tabs/profile_tab.dart';
-import '../user_tabs/chatbot_screen.dart';
 import '../user_tabs/notification_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/notification_provider.dart';
@@ -36,17 +35,14 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   }
 
   List<Widget> get _pages => [
-        HomeTab(
-          onSeeAll: _onSeeAll,
-          onCategorySelected: _onCategorySelected,
-        ),
-        SearchTab(
-          key: ValueKey(_selectedCategory),
-          initialCategory: _selectedCategory,
-        ),
-        const CartTab(),
-        const ProfileTab(),
-      ];
+    HomeTab(onSeeAll: _onSeeAll, onCategorySelected: _onCategorySelected),
+    SearchTab(
+      key: ValueKey(_selectedCategory),
+      initialCategory: _selectedCategory,
+    ),
+    const CartTab(),
+    const ProfileTab(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -59,22 +55,27 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text('Food Express',
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
-                fontSize: 20)),
+        title: const Text(
+          'Food Express',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryColor,
+            fontSize: 20,
+          ),
+        ),
         actions: [
           // 🔔 Chuông thông báo có badge
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_outlined,
-                    color: AppTheme.textPrimary, size: 26),
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: AppTheme.textPrimary,
+                  size: 26,
+                ),
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const NotificationScreen()),
+                  MaterialPageRoute(builder: (_) => const NotificationScreen()),
                 ),
               ),
               if (unread > 0)
@@ -87,14 +88,17 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                       color: AppTheme.primaryColor,
                       shape: BoxShape.circle,
                     ),
-                    constraints:
-                        const BoxConstraints(minWidth: 16, minHeight: 16),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
                     child: Text(
                       unread > 99 ? '99+' : '$unread',
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold),
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -104,7 +108,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           const SizedBox(width: 4),
         ],
       ),
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: _pages[_currentIndex],
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.pushNamed(context, AppRoutes.chatbot),
         backgroundColor: AppTheme.primaryColor,

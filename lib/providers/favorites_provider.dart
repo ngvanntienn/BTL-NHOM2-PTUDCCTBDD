@@ -1,10 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/product_model.dart';
 
 class FavoritesProvider with ChangeNotifier {
   final List<ProductModel> _favorites = [];
+
+  void _safeNotifyListeners() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final isBuilding =
+        phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.transientCallbacks;
+
+    if (isBuilding) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (hasListeners) {
+          notifyListeners();
+        }
+      });
+      return;
+    }
+
+    notifyListeners();
+  }
+
+  CollectionReference<Map<String, dynamic>> _favoritesRef(String uid) {
+    return FirebaseFirestore.instance
+        .collection('favorites')
+        .doc(uid)
+        .collection('items');
+  }
+
+  CollectionReference<Map<String, dynamic>> _legacyFavoritesRef(String uid) {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('favorites');
+  }
 
   List<ProductModel> get favorites => [..._favorites];
 
@@ -16,11 +49,7 @@ class FavoritesProvider with ChangeNotifier {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final docRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('favorites')
-        .doc(product.id);
+    final docRef = _favoritesRef(uid).doc(product.id);
 
     if (isFavorite(product.id)) {
       _favorites.removeWhere((p) => p.id == product.id);
@@ -29,23 +58,46 @@ class FavoritesProvider with ChangeNotifier {
       _favorites.add(product);
       await docRef.set(product.toMap());
     }
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   Future<void> fetchFavorites() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (uid == null) {
+      clearFavorites(notify: true);
+      return;
+    }
 
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('favorites')
-        .get();
+    final QuerySnapshot<Map<String, dynamic>> primarySnap = await _favoritesRef(
+      uid,
+    ).get();
+    final QuerySnapshot<Map<String, dynamic>> legacySnap =
+        await _legacyFavoritesRef(uid).get();
 
     _favorites.clear();
-    for (var doc in snap.docs) {
-      _favorites.add(ProductModel.fromMap(doc.data(), doc.id));
+
+    final Map<String, ProductModel> merged = <String, ProductModel>{};
+    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+        in primarySnap.docs) {
+      merged[doc.id] = ProductModel.fromMap(doc.data(), doc.id);
     }
-    notifyListeners();
+
+    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+        in legacySnap.docs) {
+      merged.putIfAbsent(
+        doc.id,
+        () => ProductModel.fromMap(doc.data(), doc.id),
+      );
+    }
+
+    _favorites.addAll(merged.values);
+    _safeNotifyListeners();
+  }
+
+  void clearFavorites({bool notify = false}) {
+    _favorites.clear();
+    if (notify) {
+      _safeNotifyListeners();
+    }
   }
 }

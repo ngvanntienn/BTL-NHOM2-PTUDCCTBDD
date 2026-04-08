@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import '../../theme/app_theme.dart';
-import '../admin/user_management_screen.dart';
 import '../admin/category_management_screen.dart';
 import '../admin/store_management_screen.dart';
 import '../admin/system_statistics_screen.dart';
+import '../admin/user_management_screen.dart';
 import '../login_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -17,8 +18,8 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = const [
-    AdminDashboardPage(),
+  final List<Widget> _pages = const <Widget>[
+    _AdminDashboardPage(),
     UserManagementScreen(),
     CategoryManagementScreen(),
     StoreManagementScreen(),
@@ -26,12 +27,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
+    if (!mounted) {
+      return;
     }
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      (Route<dynamic> route) => false,
+    );
   }
 
   @override
@@ -39,28 +42,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text(
-          'Bảng điều khiển quản trị',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: AppTheme.textPrimary),
-            onPressed: _logout,
-          ),
+        title: const Text('Bang dieu khien quan tri'),
+        actions: <Widget>[
+          IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
         ],
       ),
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        backgroundColor: Colors.white,
-        elevation: 12,
+        onTap: (int index) => setState(() => _currentIndex = index),
         selectedItemColor: AppTheme.primaryColor,
         unselectedItemColor: AppTheme.textSecondary,
-        items: const [
+        items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
@@ -74,12 +67,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.category_outlined),
             activeIcon: Icon(Icons.category),
-            label: 'Danh mục',
+            label: 'Danh muc',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.store_outlined),
             activeIcon: Icon(Icons.store),
-            label: 'Cửa hàng',
+            label: 'Cua hang',
           ),
         ],
       ),
@@ -87,123 +80,83 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 }
 
-class AdminDashboardPage extends StatelessWidget {
-  const AdminDashboardPage({super.key});
+class _AdminDashboardPage extends StatelessWidget {
+  const _AdminDashboardPage();
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const CircleAvatar(
-            radius: 40,
-            backgroundColor: Colors.redAccent,
-            child: Icon(Icons.admin_panel_settings,
-                size: 40, color: Colors.white),
+        children: <Widget>[
+          const Text(
+            'Tong quan quan tri',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
           ),
-          const SizedBox(height: 24),
-          const Text('Super Admin Portal',
-              style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary)),
           const SizedBox(height: 8),
-          const Text('Quản lý toàn bộ hệ thống',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 16)),
-          const SizedBox(height: 32),
-          _buildFeatureCard(
-            context,
-            'Quản lý Người dùng',
-            'Xem và quản lý tất cả tài khoản',
-            Icons.people_outline,
-            AppTheme.primaryColor,
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const UserManagementScreen()),
-            ),
+          const Text(
+            'Quản lý tài khoản, danh mục, cửa hàng và thống kê hệ thống',
+            style: TextStyle(color: AppTheme.textSecondary),
           ),
-          const SizedBox(height: 16),
-          _buildFeatureCard(
+          const SizedBox(height: 20),
+          _card(
             context,
-            'Quản lý Danh mục',
-            'Quản lý các danh mục món ăn',
-            Icons.category_outlined,
-            Colors.blueAccent,
-            () => Navigator.push(
+            title: 'Quản lý người dùng',
+            subtitle: 'Thêm, sửa, xóa, vô hiệu hóa tài khoản',
+            icon: Icons.people_outline,
+            color: Colors.redAccent,
+            onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => const CategoryManagementScreen()),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CircleAvatar(
-              radius: 40,
-              backgroundColor: Colors.redAccent,
-              child: Icon(
-                Icons.admin_panel_settings,
-                size: 40,
-                color: Colors.white,
+              MaterialPageRoute<void>(
+                builder: (_) => const UserManagementScreen(),
               ),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Trung tâm quản trị hệ thống',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+          ),
+          const SizedBox(height: 12),
+          _card(
+            context,
+            title: 'Quản lý danh mục',
+            subtitle: 'CRUD danh muc + dong bo Firestore realtime',
+            icon: Icons.category_outlined,
+            color: Colors.blueAccent,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => const CategoryManagementScreen(),
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Quản lý và kiểm soát toàn bộ hệ thống',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
-            ),
-            const SizedBox(height: 32),
-            _buildFeatureCard(
+          ),
+          const SizedBox(height: 12),
+          _card(
+            context,
+            title: 'Quản lý cửa hàng',
+            subtitle: 'Duyet, kich hoat, khoa seller',
+            icon: Icons.store_outlined,
+            color: Colors.orangeAccent,
+            onTap: () => Navigator.push(
               context,
-              'Quản lý người dùng',
-              'Xem và quản lý tất cả tài khoản',
-              Icons.people_outline,
-              Colors.redAccent,
+              MaterialPageRoute<void>(
+                builder: (_) => const StoreManagementScreen(),
+              ),
             ),
           ),
-          const SizedBox(height: 16),
-          _buildFeatureCard(
+          const SizedBox(height: 12),
+          _card(
             context,
-            'Quản lý Cửa hàng',
-            'Quản lý tài khoản người bán',
-            Icons.store_outlined,
-            Colors.orangeAccent,
-            () => Navigator.push(
+            title: 'Thống kê hệ thống',
+            subtitle: 'Tổng đơn, doanh thu, người dùng hoạt động',
+            icon: Icons.analytics_outlined,
+            color: Colors.purpleAccent,
+            onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => const StoreManagementScreen()),
-              'Nhật ký hệ thống',
-              'Theo dõi hiệu năng và lỗi',
-              Icons.list_alt_outlined,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildFeatureCard(
-            context,
-            'Thống kê Hệ thống',
-            'Xem báo cáo và phân tích doanh số',
-            Icons.analytics_outlined,
-            Colors.purpleAccent,
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const SystemStatisticsScreen()),
-              'Cài đặt nền tảng',
-              'Điều chỉnh cấu hình vận hành',
-              Icons.settings_suggest_outlined,
-              Colors.white,
+              MaterialPageRoute<void>(
+                builder: (_) => const SystemStatisticsScreen(),
+              ),
             ),
           ),
         ],
@@ -211,101 +164,59 @@ class AdminDashboardPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureCard(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
+  Widget _card(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.cardColor,
-          borderRadius: BorderRadius.circular(24),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppTheme.dividerColor),
         ),
         child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 28),
+          children: <Widget>[
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: color.withOpacity(0.14),
+              child: Icon(icon, color: color),
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary)),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          color: AppTheme.textSecondary, fontSize: 14)),
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios,
-                color: AppTheme.textSecondary, size: 16),
+            const Icon(Icons.arrow_forward_ios, size: 14),
           ],
         ),
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.arrow_forward_ios,
-            color: AppTheme.textSecondary,
-            size: 16,
-          ),
-        ],
       ),
     );
   }
 }
+

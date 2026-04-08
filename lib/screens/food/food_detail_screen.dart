@@ -1,10 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/food_model.dart';
 import '../../models/food_review_model.dart';
+import '../../models/product_model.dart';
+import '../../providers/cart_provider.dart';
 import '../../theme/app_theme.dart';
+import '../user_tabs/checkout_screen.dart';
 
 class FoodDetailScreen extends StatefulWidget {
   const FoodDetailScreen({super.key, required this.foodId});
@@ -27,8 +31,9 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
   }
 
   Future<void> _syncFoodRating() async {
-    final QuerySnapshot<Map<String, dynamic>> snap =
-        await _foodRef.collection('reviews').get();
+    final QuerySnapshot<Map<String, dynamic>> snap = await _foodRef
+        .collection('reviews')
+        .get();
     final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs = snap.docs;
 
     if (docs.isEmpty) {
@@ -92,7 +97,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy', style: TextStyle(color: AppTheme.textSecondary)),
+            child: const Text(
+              'Hủy',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -110,8 +118,9 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
   }
 
   Future<void> _openReviewSheet({FoodReviewModel? review}) async {
-    final TextEditingController commentCtrl =
-        TextEditingController(text: review?.comment ?? '');
+    final TextEditingController commentCtrl = TextEditingController(
+      text: review?.comment ?? '',
+    );
     double rating = review?.rating ?? 5;
 
     await showModalBottomSheet<void>(
@@ -148,9 +157,12 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                     children: List<Widget>.generate(5, (index) {
                       final int star = index + 1;
                       return IconButton(
-                        onPressed: () => setInnerState(() => rating = star.toDouble()),
+                        onPressed: () =>
+                            setInnerState(() => rating = star.toDouble()),
                         icon: Icon(
-                          star <= rating ? Icons.star_rounded : Icons.star_border_rounded,
+                          star <= rating
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
                           color: Colors.amber,
                           size: 30,
                         ),
@@ -172,7 +184,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                     child: FilledButton(
                       onPressed: () async {
                         if (commentCtrl.text.trim().isEmpty) {
-                          _showSnack('Vui lòng nhập nội dung đánh giá.', isError: true);
+                          _showSnack(
+                            'Vui lòng nhập nội dung đánh giá.',
+                            isError: true,
+                          );
                           return;
                         }
                         await _saveReview(
@@ -182,7 +197,9 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                         );
                         if (context.mounted) Navigator.pop(context);
                       },
-                      child: Text(review == null ? 'Gửi đánh giá' : 'Cập nhật đánh giá'),
+                      child: Text(
+                        review == null ? 'Gửi đánh giá' : 'Cập nhật đánh giá',
+                      ),
                     ),
                   ),
                 ],
@@ -196,19 +213,27 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     commentCtrl.dispose();
   }
 
-  Future<void> _saveFavorite(FoodModel food) async {
+  Future<void> _toggleFavorite(FoodModel food, bool isFavorite) async {
     final User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showSnack('Bạn cần đăng nhập để lưu món yêu thích.', isError: true);
       return;
     }
 
-    await FirebaseFirestore.instance
+    final DocumentReference<Map<String, dynamic>> favRef = FirebaseFirestore
+        .instance
         .collection('favorites')
         .doc(user.uid)
         .collection('items')
-        .doc(food.id)
-        .set(<String, dynamic>{
+        .doc(food.id);
+
+    if (isFavorite) {
+      await favRef.delete();
+      _showSnack('Đã hủy món yêu thích.');
+      return;
+    }
+
+    await favRef.set(<String, dynamic>{
       'name': food.name,
       'restaurant': food.restaurant,
       'price': food.price,
@@ -217,6 +242,41 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     }, SetOptions(merge: true));
 
     _showSnack('Đã thêm vào danh sách yêu thích.');
+  }
+
+  ProductModel _toProduct(FoodModel food) {
+    return ProductModel(
+      id: food.id,
+      name: food.name,
+      description: food.description,
+      price: food.price,
+      imageUrl: food.imageUrl,
+      category: food.category,
+      rating: food.rating,
+    );
+  }
+
+  void _addToCart(FoodModel food) {
+    if (!food.available) {
+      _showSnack('Món này hiện đang hết hàng.', isError: true);
+      return;
+    }
+    final ProductModel product = _toProduct(food);
+    Provider.of<CartProvider>(context, listen: false).addItem(product);
+    _showSnack('Đã thêm ${food.name} vào giỏ hàng.');
+  }
+
+  void _buyNow(FoodModel food) {
+    if (!food.available) {
+      _showSnack('Món này hiện đang hết hàng.', isError: true);
+      return;
+    }
+    final ProductModel product = _toProduct(food);
+    Provider.of<CartProvider>(context, listen: false).addItem(product);
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const CheckoutScreen()),
+    );
   }
 
   void _showSnack(String message, {bool isError = false}) {
@@ -253,7 +313,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
             return const Center(
               child: Text(
                 'Không tìm thấy món ăn.',
-                style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             );
           }
@@ -293,17 +356,44 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                               ),
                             ),
                           ),
-                          IconButton(
-                            onPressed: () => _saveFavorite(food),
-                            icon: const Icon(Icons.favorite_border_rounded),
-                            color: AppTheme.primaryColor,
-                            tooltip: 'Thêm yêu thích',
-                          )
+                          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                            stream: FirebaseAuth.instance.currentUser == null
+                                ? null
+                                : FirebaseFirestore.instance
+                                      .collection('favorites')
+                                      .doc(
+                                        FirebaseAuth.instance.currentUser!.uid,
+                                      )
+                                      .collection('items')
+                                      .doc(food.id)
+                                      .snapshots(),
+                            builder: (context, favSnapshot) {
+                              final bool isFavorite =
+                                  favSnapshot.data?.exists == true;
+                              return IconButton(
+                                onPressed: () =>
+                                    _toggleFavorite(food, isFavorite),
+                                icon: Icon(
+                                  isFavorite
+                                      ? Icons.favorite_rounded
+                                      : Icons.favorite_border_rounded,
+                                ),
+                                color: isFavorite
+                                    ? AppTheme.primaryColor
+                                    : AppTheme.textSecondary,
+                                tooltip: isFavorite
+                                    ? 'Hủy yêu thích'
+                                    : 'Thêm yêu thích',
+                              );
+                            },
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        food.restaurant.isEmpty ? 'FoodExpress' : food.restaurant,
+                        food.restaurant.isEmpty
+                            ? 'FoodExpress'
+                            : food.restaurant,
                         style: const TextStyle(color: AppTheme.textSecondary),
                       ),
                       const SizedBox(height: 10),
@@ -312,9 +402,14 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                         runSpacing: 10,
                         children: <Widget>[
                           _infoChip(Icons.category_outlined, food.category),
-                          _infoChip(Icons.sell_outlined, _formatMoney(food.price)),
-                          _infoChip(Icons.local_fire_department_outlined,
-                              food.isTrending ? 'Đang thịnh hành' : 'Món thường'),
+                          _infoChip(
+                            Icons.sell_outlined,
+                            _formatMoney(food.price),
+                          ),
+                          _infoChip(
+                            Icons.local_fire_department_outlined,
+                            food.isTrending ? 'Đang thịnh hành' : 'Món thường',
+                          ),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -350,7 +445,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                         icon: const Icon(Icons.rate_review_outlined, size: 16),
                         label: const Text('Thêm đánh giá'),
                         style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                       ),
                     ],
@@ -358,6 +456,32 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                 ),
                 const SizedBox(height: 8),
                 _buildReviewsSection(food),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: food.available
+                              ? () => _addToCart(food)
+                              : null,
+                          icon: const Icon(Icons.add_shopping_cart),
+                          label: const Text('Thêm giỏ hàng'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: food.available
+                              ? () => _buyNow(food)
+                              : null,
+                          icon: const Icon(Icons.flash_on_rounded),
+                          label: const Text('Mua ngay'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           );
@@ -370,7 +494,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: _foodRef.collection('reviews').orderBy('createdAt', descending: true).snapshots(),
+      stream: _foodRef
+          .collection('reviews')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
@@ -381,14 +508,14 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
           );
         }
 
-        final List<FoodReviewModel> reviews = snapshot.data?.docs
-                .map(FoodReviewModel.fromDoc)
-                .toList() ??
+        final List<FoodReviewModel> reviews =
+            snapshot.data?.docs.map(FoodReviewModel.fromDoc).toList() ??
             <FoodReviewModel>[];
 
         final double avgRating = reviews.isEmpty
             ? food.rating
-            : reviews.map((review) => review.rating).reduce((a, b) => a + b) / reviews.length;
+            : reviews.map((review) => review.rating).reduce((a, b) => a + b) /
+                  reviews.length;
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -440,7 +567,9 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                         children: <Widget>[
                           Expanded(
                             child: Text(
-                              review.userName.isEmpty ? 'Người dùng' : review.userName,
+                              review.userName.isEmpty
+                                  ? 'Người dùng'
+                                  : review.userName,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.textPrimary,
@@ -449,11 +578,17 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                           ),
                           Row(
                             children: <Widget>[
-                              const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                              const Icon(
+                                Icons.star_rounded,
+                                color: Colors.amber,
+                                size: 16,
+                              ),
                               const SizedBox(width: 2),
                               Text(
                                 review.rating.toStringAsFixed(1),
-                                style: const TextStyle(fontWeight: FontWeight.w700),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ],
                           ),
@@ -467,22 +602,35 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                                   _deleteReview(review.id);
                                 }
                               },
-                              itemBuilder: (_) => const <PopupMenuEntry<String>>[
-                                PopupMenuItem<String>(value: 'edit', child: Text('Sửa')),
-                                PopupMenuItem<String>(value: 'delete', child: Text('Xóa')),
-                              ],
+                              itemBuilder: (_) =>
+                                  const <PopupMenuEntry<String>>[
+                                    PopupMenuItem<String>(
+                                      value: 'edit',
+                                      child: Text('Sửa'),
+                                    ),
+                                    PopupMenuItem<String>(
+                                      value: 'delete',
+                                      child: Text('Xóa'),
+                                    ),
+                                  ],
                             ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Text(
                         review.comment,
-                        style: const TextStyle(height: 1.4, color: AppTheme.textPrimary),
+                        style: const TextStyle(
+                          height: 1.4,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         _timeLabel(review.createdAt),
-                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),

@@ -5,13 +5,54 @@ class VoucherService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _collectionPath = 'vouchers';
 
+  Map<String, dynamic> _toFirestoreData(
+    VoucherModel voucher, {
+    required bool isCreate,
+    String? id,
+  }) {
+    final String normalizedType = voucher.type.toUpperCase();
+    final bool isFixed = normalizedType == 'FIXED';
+    final double resolvedValue = isFixed
+        ? (voucher.fixedDiscount ?? 0)
+        : voucher.discountPercent;
+
+    return <String, dynamic>{
+      // Core fields
+      if (id != null) 'id': id,
+      'code': voucher.code.toUpperCase(),
+      'name': voucher.name.isEmpty ? voucher.description : voucher.name,
+      'description': voucher.description,
+      'discountPercent': voucher.discountPercent,
+      'maxDiscountAmount': voucher.maxDiscountAmount,
+      'minOrderAmount': voucher.minOrderAmount,
+      'usageLimit': voucher.usageLimit,
+      'currentUsage': voucher.currentUsage,
+      'expiryDate': Timestamp.fromDate(voucher.expiryDate),
+      'isActive': voucher.isActive,
+      'createdBy': voucher.createdBy,
+      'createdAt': isCreate
+          ? FieldValue.serverTimestamp()
+          : Timestamp.fromDate(voucher.createdAt),
+      'applicableCategories': voucher.applicableCategories,
+      'type': normalizedType,
+      'fixedDiscount': voucher.fixedDiscount,
+
+      // Legacy-compatible aliases (helpful when rules/old screens expect these)
+      'value': resolvedValue,
+      'maxDiscount': voucher.maxDiscountAmount,
+    };
+  }
+
   // Create new voucher (admin/seller)
   Future<String> createVoucher(VoucherModel voucher) async {
     try {
-      final docRef = await _firestore
-          .collection(_collectionPath)
-          .add(voucher.toMap());
+      final docRef = _firestore.collection(_collectionPath).doc();
+      await docRef.set(
+        _toFirestoreData(voucher, isCreate: true, id: docRef.id),
+      );
       return docRef.id;
+    } on FirebaseException catch (e) {
+      throw Exception('Lỗi tạo voucher [${e.code}]: ${e.message}');
     } catch (e) {
       throw Exception('Lỗi tạo voucher: $e');
     }
@@ -106,8 +147,41 @@ class VoucherService {
   // Apply voucher (increment usage)
   Future<void> applyVoucher(String voucherId) async {
     try {
-      await _firestore.collection(_collectionPath).doc(voucherId).update({
-        'currentUsage': FieldValue.increment(1),
+      await _firestore.runTransaction((tx) async {
+        final DocumentReference<Map<String, dynamic>> ref = _firestore
+            .collection(_collectionPath)
+            .doc(voucherId);
+        final DocumentSnapshot<Map<String, dynamic>> snap = await tx.get(ref);
+
+        if (!snap.exists) {
+          throw Exception('Voucher không tồn tại.');
+        }
+
+        final Map<String, dynamic> data = snap.data() ?? <String, dynamic>{};
+        final bool isActive = (data['isActive'] as bool?) ?? true;
+        if (!isActive) {
+          throw Exception('Voucher đã hết hiệu lực.');
+        }
+
+        final DateTime expiryDate = _toDate(data['expiryDate']);
+        if (DateTime.now().isAfter(expiryDate)) {
+          tx.update(ref, <String, dynamic>{'isActive': false});
+          throw Exception('Voucher đã hết hạn.');
+        }
+
+        final int usageLimit = _toInt(data['usageLimit']);
+        final int currentUsage = _toInt(data['currentUsage']);
+
+        if (usageLimit > 0 && currentUsage >= usageLimit) {
+          tx.update(ref, <String, dynamic>{'isActive': false});
+          throw Exception('Voucher đã hết lượt sử dụng.');
+        }
+
+        final int nextUsage = currentUsage + 1;
+        tx.update(ref, <String, dynamic>{
+          'currentUsage': nextUsage,
+          if (usageLimit > 0 && nextUsage >= usageLimit) 'isActive': false,
+        });
       });
     } catch (e) {
       throw Exception('Lỗi áp dụng voucher: $e');
@@ -120,7 +194,9 @@ class VoucherService {
       await _firestore
           .collection(_collectionPath)
           .doc(voucherId)
-          .update(voucher.toMap());
+          .update(_toFirestoreData(voucher, isCreate: false, id: voucherId));
+    } on FirebaseException catch (e) {
+      throw Exception('Lỗi cập nhật voucher [${e.code}]: ${e.message}');
     } catch (e) {
       throw Exception('Lỗi cập nhật voucher: $e');
     }
@@ -153,16 +229,37 @@ class VoucherService {
     }
 
     double discount = 0;
-    if (voucher.type == 'PERCENTAGE') {
+    final String normalizedType = voucher.type.toUpperCase();
+    if (normalizedType == 'PERCENTAGE') {
       discount = (totalAmount * voucher.discountPercent) / 100;
       if (voucher.maxDiscountAmount != null) {
         discount = discount.clamp(0, voucher.maxDiscountAmount!);
       }
-    } else if (voucher.type == 'FIXED') {
+    } else if (normalizedType == 'FIXED') {
       discount = voucher.fixedDiscount ?? 0;
     }
 
     return discount;
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      return int.tryParse(value) ?? 0;
+    }
+    return 0;
+  }
+
+  static DateTime _toDate(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return DateTime.now();
   }
 
   // Get top vouchers (for promotion display)

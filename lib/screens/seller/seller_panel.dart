@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import 'seller_dashboard.dart';
 import 'seller_voucher_screen.dart';
-import 'seller_orders_screen.dart';
+import 'order_management_screen.dart';
 import 'seller_settings_screen.dart';
 
 class SellerPanel extends StatefulWidget {
@@ -23,7 +23,7 @@ class _SellerPanelState extends State<SellerPanel> {
     _screens = [
       const SellerDashboard(),
       const SellerVoucherScreen(),
-      const SellerOrdersScreen(),
+      const OrderManagementScreen(),
       const SellerSettingsScreen(),
     ];
   }

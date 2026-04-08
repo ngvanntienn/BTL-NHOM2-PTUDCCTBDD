@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/address_model.dart';
@@ -6,6 +7,24 @@ import '../models/address_model.dart';
 class AddressProvider with ChangeNotifier {
   List<AddressModel> _addresses = [];
   AddressModel? _selectedAddress;
+
+  void _safeNotifyListeners() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final isBuilding =
+        phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.transientCallbacks;
+
+    if (isBuilding) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (hasListeners) {
+          notifyListeners();
+        }
+      });
+      return;
+    }
+
+    notifyListeners();
+  }
 
   List<AddressModel> get addresses => [..._addresses];
   AddressModel? get selectedAddress => _selectedAddress;
@@ -20,14 +39,25 @@ class AddressProvider with ChangeNotifier {
         .collection('addresses')
         .get();
 
-    _addresses = snap.docs.map((d) => AddressModel.fromMap(d.data(), d.id)).toList();
+    _addresses = snap.docs
+        .map((d) => AddressModel.fromMap(d.data(), d.id))
+        .toList();
     if (_addresses.isNotEmpty) {
-      _selectedAddress = _addresses.firstWhere((a) => a.isDefault, orElse: () => _addresses.first);
+      _selectedAddress = _addresses.firstWhere(
+        (a) => a.isDefault,
+        orElse: () => _addresses.first,
+      );
     }
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
-  Future<void> addAddress(String label, String receiverName, String phoneNumber, String detail, bool isDefault) async {
+  Future<void> addAddress(
+    String label,
+    String receiverName,
+    String phoneNumber,
+    String detail,
+    bool isDefault,
+  ) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
@@ -38,12 +68,12 @@ class AddressProvider with ChangeNotifier {
         .doc();
 
     final newAddr = AddressModel(
-      id: docRef.id, 
-      label: label, 
-      receiverName: receiverName, 
-      phoneNumber: phoneNumber, 
-      detail: detail, 
-      isDefault: isDefault
+      id: docRef.id,
+      label: label,
+      receiverName: receiverName,
+      phoneNumber: phoneNumber,
+      detail: detail,
+      isDefault: isDefault,
     );
 
     if (isDefault) await _clearDefaults(uid);
@@ -84,11 +114,14 @@ class AddressProvider with ChangeNotifier {
     final batch = FirebaseFirestore.instance.batch();
     for (var a in _addresses) {
       if (a.isDefault) {
-        batch.update(FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .collection('addresses')
-            .doc(a.id), {'isDefault': false});
+        batch.update(
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('addresses')
+              .doc(a.id),
+          {'isDefault': false},
+        );
       }
     }
     await batch.commit();
@@ -96,6 +129,6 @@ class AddressProvider with ChangeNotifier {
 
   void selectAddress(AddressModel address) {
     _selectedAddress = address;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 }

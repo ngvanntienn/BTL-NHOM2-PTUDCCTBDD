@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../services/user_service.dart';
 import '../../providers/user_provider.dart';
 import '../../models/user_model.dart';
 import 'user_edit_dialog.dart';
@@ -19,17 +21,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   @override
   void initState() {
     super.initState();
-    _reloadData();
-    _searchController.addListener(() => setState(() {}));
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Reload data when screen comes back into focus
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _reloadData();
+      if (mounted) {
+        _reloadData();
+      }
     });
+    _searchController.addListener(() => setState(() {}));
   }
 
   Future<void> _reloadData() async {
@@ -48,10 +45,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   List<UserModel> _getFilteredUsers(List<UserModel> allUsers) {
     final query = _searchController.text.toLowerCase();
     return allUsers.where((user) {
-      final matchesSearch = user.name.toLowerCase().contains(query) ||
+      final matchesSearch =
+          user.name.toLowerCase().contains(query) ||
           user.email.toLowerCase().contains(query);
-      final matchesRole =
-          _selectedRole == 'all' || user.role == _selectedRole;
+      final matchesRole = _selectedRole == 'all' || user.role == _selectedRole;
       return matchesSearch && matchesRole;
     }).toList();
   }
@@ -63,7 +60,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         user: user,
         onSave: (updatedUser) {
           // Update via provider - will notify all listeners
-          final userProvider = Provider.of<UserProvider>(context, listen: false);
+          final userProvider = Provider.of<UserProvider>(
+            context,
+            listen: false,
+          );
           userProvider.updateUserOptimistically(updatedUser);
         },
       ),
@@ -71,6 +71,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   Future<void> _deleteUser(String userId, String userName) async {
+    final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (currentUid == userId) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể tự xóa tài khoản đang đăng nhập.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -85,28 +98,44 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
               Navigator.pop(context);
-              
-              final userProvider = Provider.of<UserProvider>(context, listen: false);
-              
-              try {
-                // Optimistic delete
-                userProvider.deleteUserOptimistically(userId);
 
+              final userProvider = Provider.of<UserProvider>(
+                context,
+                listen: false,
+              );
+              final rollback = userProvider.deleteUserOptimistically(userId);
+
+              try {
                 // Delete from Firestore
-                await userProvider.deleteUser(userId);
+                final outcome = await userProvider.deleteUser(userId);
 
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đã xóa tài khoản'),
-                      backgroundColor: AppTheme.accentColor,
-                    ),
-                  );
+                  if (outcome == DeleteUserOutcome.firestoreOnly) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Đã xóa trong app/Firestore. Firebase Authentication vẫn còn vì Cloud Functions chưa deploy được trên Spark.',
+                        ),
+                        backgroundColor: Colors.orangeAccent,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Đã xóa tài khoản'),
+                        backgroundColor: AppTheme.accentColor,
+                      ),
+                    );
+                  }
                 }
               } catch (e) {
-                // Reload to get latest data if error
+                if (rollback.removedUser != null) {
+                  userProvider.restoreDeletedUser(
+                    rollback.removedUser!,
+                    rollback.removedIndex,
+                  );
+                }
                 if (mounted) {
-                  await userProvider.loadUsers();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Lỗi: $e'),
@@ -128,8 +157,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Quản lý Tài khoản',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Quản lý Tài khoản',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppTheme.textPrimary),
@@ -145,14 +176,20 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: 'Tìm kiếm theo tên hoặc email...',
-                    prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondary),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: AppTheme.textSecondary,
+                    ),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? GestureDetector(
                             onTap: () {
                               _searchController.clear();
                               setState(() {});
                             },
-                            child: const Icon(Icons.clear, color: AppTheme.textSecondary),
+                            child: const Icon(
+                              Icons.clear,
+                              color: AppTheme.textSecondary,
+                            ),
                           )
                         : null,
                   ),
@@ -182,11 +219,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               builder: (context, userProvider, child) {
                 // Dynamically compute filtered list based on provider data + search/role
                 final filteredUsers = _getFilteredUsers(userProvider.allUsers);
-                
+
                 if (userProvider.isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                
+
                 // Pull-to-refresh wrapper
                 return RefreshIndicator(
                   onRefresh: _reloadData,
@@ -201,11 +238,20 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   const SizedBox(height: 100),
-                                  Icon(Icons.people_outline,
-                                      size: 64, color: AppTheme.textSecondary.withOpacity(0.5)),
+                                  Icon(
+                                    Icons.people_outline,
+                                    size: 64,
+                                    color: AppTheme.textSecondary.withOpacity(
+                                      0.5,
+                                    ),
+                                  ),
                                   const SizedBox(height: 16),
-                                  Text('Không tìm thấy tài khoản',
-                                      style: Theme.of(context).textTheme.bodyMedium),
+                                  Text(
+                                    'Không tìm thấy tài khoản',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
                                 ],
                               ),
                             ),
@@ -256,7 +302,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: user.isDisabled ? Colors.redAccent.withOpacity(0.3) : AppTheme.dividerColor,
+          color: user.isDisabled
+              ? Colors.redAccent.withOpacity(0.3)
+              : AppTheme.dividerColor,
           width: user.isDisabled ? 1.5 : 1,
         ),
       ),
@@ -278,19 +326,27 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(user.name,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text(user.email,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppTheme.textSecondary)),
+                    Text(
+                      user.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      user.email,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: user.isDisabled 
+                  color: user.isDisabled
                       ? Colors.redAccent.withOpacity(0.1)
                       : _getRoleColor(user.role).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -300,7 +356,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: user.isDisabled ? Colors.redAccent : _getRoleColor(user.role),
+                    color: user.isDisabled
+                        ? Colors.redAccent
+                        : _getRoleColor(user.role),
                   ),
                 ),
               ),
@@ -309,11 +367,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Text('${user.phone} • ${user.address}',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppTheme.textSecondary),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
+              Text(
+                '${user.phone} • ${user.address}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
           const SizedBox(height: 12),

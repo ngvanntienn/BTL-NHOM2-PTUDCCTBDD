@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -338,7 +338,7 @@ class _AddEditFoodScreenState extends State<AddEditFoodScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               const Text(
-                                'Chua co danh muc mon an.',
+                                'Chưa có danh mục món ăn.',
                                 style: TextStyle(fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 8),
@@ -349,7 +349,7 @@ class _AddEditFoodScreenState extends State<AddEditFoodScreen> {
                                 icon: const Icon(Icons.refresh),
                                 label: Text(
                                   _isSeedingCategories
-                                      ? 'Dang tao danh muc...'
+                                      ? 'Đang tạo danh mục...'
                                       : 'Tao danh muc mac dinh',
                                 ),
                               ),

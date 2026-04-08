@@ -43,9 +43,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-
-
 *.md
 !README.md
 
 export_firestore_to_json.dart
+# Local machine / generated platform configs
+android/local.properties
+android/key.properties
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/ephemeral/
+macos/Flutter/ephemeral/
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/

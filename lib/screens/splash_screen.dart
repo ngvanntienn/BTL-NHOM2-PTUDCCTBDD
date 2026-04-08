@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../app_routes.dart';
+import '../theme/app_theme.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
-
+import 'home/user_home.dart';
+import 'home/seller_home.dart';
+import 'home/admin_home.dart';
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -30,17 +36,53 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     Future.delayed(const Duration(seconds: 2, milliseconds: 500), () {
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            transitionDuration: const Duration(milliseconds: 500),
-            pageBuilder: (_, __, ___) => const LoginScreen(),
-            transitionsBuilder: (_, anim, __, child) =>
-                FadeTransition(opacity: anim, child: child),
-          ),
-        );
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
+    _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    await Future.delayed(const Duration(seconds: 2, milliseconds: 500));
+    if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _navigateTo(const LoginScreen());
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (!doc.exists) {
+        await FirebaseAuth.instance.signOut();
+        _navigateTo(const LoginScreen());
+        return;
       }
-    });
+
+      final role = doc.get('role') ?? 'user';
+      if (role == 'admin') {
+        _navigateTo(const AdminHomeScreen());
+      } else if (role == 'seller') {
+        _navigateTo(const SellerHomeScreen());
+      } else {
+        _navigateTo(const UserHomeScreen());
+      }
+    } catch (e) {
+      await FirebaseAuth.instance.signOut();
+      _navigateTo(const LoginScreen());
+    }
+  }
+
+  void _navigateTo(Widget page) {
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 500),
+        pageBuilder: (_, __, ___) => page,
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
   }
 
   @override

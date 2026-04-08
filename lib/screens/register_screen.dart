@@ -70,7 +70,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
       if (mounted) _showSnackBar(msg, isError: true);
     } catch (e) {
-      if (mounted) _showSnackBar('Lỗi: $e', isError: true);
+      // IF FIREBASE AUTH CREATED USER BUT FIRESTORE FAILED, DELETE AUTH USER
+      try {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          await currentUser.delete();
+        }
+      } catch (innerError) {
+        // Ignored
+      }
+      if (mounted) _showSnackBar('Lỗi lưu Firestore: $e. Đã huỷ tài khoản Auth để bạn đăng ký lại.', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

@@ -30,6 +30,24 @@ class HomeTab extends StatelessWidget {
 class _HomeTabState extends State<HomeTab> {
   final _foodService = FoodService();
 
+  int _ratingGroup(double rating) {
+    if (rating >= 4) return 0;
+    if (rating >= 1) return 1;
+    return 2;
+  }
+
+  int _compareByRatingPriority(FoodModel a, FoodModel b) {
+    final int groupDiff = _ratingGroup(a.rating).compareTo(_ratingGroup(b.rating));
+    if (groupDiff != 0) return groupDiff;
+
+    final int ratingDiff = b.rating.compareTo(a.rating);
+    if (ratingDiff != 0) return ratingDiff;
+
+    final String aName = a.name.trim().toLowerCase();
+    final String bName = b.name.trim().toLowerCase();
+    return aName.compareTo(bName);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -644,8 +662,10 @@ class _HomeTabState extends State<HomeTab> {
 
         final List<FoodModel> trendingFoods = foods.where((food) => food.isTrending).toList();
         final List<FoodModel> source = trendingFoods.isEmpty ? foods : trendingFoods;
+        final List<FoodModel> sortedSource = List<FoodModel>.from(source)
+          ..sort(_compareByRatingPriority);
 
-        if (source.isEmpty) {
+        if (sortedSource.isEmpty) {
           return Container(
             height: 120,
             alignment: Alignment.center,
@@ -739,10 +759,10 @@ class _HomeTabState extends State<HomeTab> {
           height: 220,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: source.length > 8 ? 8 : source.length,
+            itemCount: sortedSource.length > 8 ? 8 : sortedSource.length,
             separatorBuilder: (_, __) => const SizedBox(width: 14),
             itemBuilder: (_, i) {
-              final FoodModel food = source[i];
+              final FoodModel food = sortedSource[i];
               return InkWell(
                 onTap: () => Navigator.pushNamed(
                   context,

@@ -1,4 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import '../../services/n8n_chatbot_service.dart';
 import '../../theme/app_theme.dart';
 
 class ChatbotScreen extends StatefulWidget {
@@ -11,60 +15,429 @@ class ChatbotScreen extends StatefulWidget {
 class _ChatbotScreenState extends State<ChatbotScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<Map<String, dynamic>> _messages = [];
+  final List<Map<String, dynamic>> _messages = <Map<String, dynamic>>[];
+  final N8nChatbotService _n8nService = N8nChatbotService();
   bool _isTyping = false;
+  bool _isLoadingHistory = true;
+
+  CollectionReference<Map<String, dynamic>>? get _chatCollection {
+    final String? uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return null;
+    return FirebaseFirestore.instance
+        .collection('chat_history')
+        .doc(uid)
+        .collection('messages');
+  }
 
   @override
   void initState() {
     super.initState();
-    _messages.add({
+    _loadHistory();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  String _formatTime(DateTime time) {
+    final TimeOfDay t = TimeOfDay.fromDateTime(time);
+    return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDateTime(DateTime time) {
+    final String d =
+        '${time.day.toString().padLeft(2, '0')}/${time.month.toString().padLeft(2, '0')}/${time.year}';
+    return '$d ${_formatTime(time)}';
+  }
+
+  String _formatPrice(double price) {
+    if (price <= 0) {
+      return 'Gia dang cap nhat';
+    }
+    return '${price.toStringAsFixed(0)}d';
+  }
+
+  List<Map<String, dynamic>> _normalizeSuggestions(dynamic raw) {
+    if (raw is! List) {
+      return <Map<String, dynamic>>[];
+    }
+
+    final List<Map<String, dynamic>> items = <Map<String, dynamic>>[];
+    for (final dynamic element in raw) {
+      if (element is! Map) {
+        continue;
+      }
+
+      final String name = (element['name'] ?? 'Mon goi y').toString();
+      final String category = (element['category'] ?? '').toString();
+      final String reason = (element['reason'] ?? '').toString();
+      final double price = element['price'] is num
+          ? (element['price'] as num).toDouble()
+          : 0;
+      final double rating = element['rating'] is num
+          ? (element['rating'] as num).toDouble()
+          : 0;
+
+      items.add(<String, dynamic>{
+        'name': name,
+        'category': category,
+        'reason': reason,
+        'price': price,
+        'rating': rating,
+      });
+    }
+
+    return items;
+  }
+
+  List<Map<String, dynamic>> _historyForN8n() {
+    final Iterable<Map<String, dynamic>> recent = _messages.reversed
+        .take(12)
+        .toList()
+        .reversed;
+    return recent
+        .map(
+          (Map<String, dynamic> msg) => <String, dynamic>{
+            'role': (msg['role'] ?? 'user').toString(),
+            'text': (msg['text'] ?? '').toString(),
+          },
+        )
+        .where(
+          (Map<String, dynamic> item) =>
+              (item['text'] as String).trim().isNotEmpty,
+        )
+        .toList();
+  }
+
+  Map<String, dynamic> _greetingMessage() {
+    return <String, dynamic>{
       'role': 'bot',
-      'text': 'Xin chào! 👋 Tôi là AI Chef của FoodExpress.\n\nHôm nay bạn đang thèm gì nào? Tôi sẵn sàng gợi ý món ngon cho bạn!',
-      'time': _now(),
-    });
+      'text':
+          'Xin chào! Tôi là AI Chef của FoodExpress.\n\nHôm nay bạn đang thèm gì nào? Tôi sẵn sàng gợi ý món ngon cho bạn!',
+      'time': _formatTime(DateTime.now()),
+      'hasCard': false,
+      'foodSuggestions': <Map<String, dynamic>>[],
+    };
   }
 
-  String _now() {
-    final n = TimeOfDay.now();
-    return '${n.hour.toString().padLeft(2, '0')}:${n.minute.toString().padLeft(2, '0')}';
-  }
-
-  void _send(String text) {
-    if (text.trim().isEmpty) return;
-    _controller.clear();
-    setState(() {
-      _messages.add({'role': 'user', 'text': text.trim(), 'time': _now()});
-      _isTyping = true;
-    });
-    _scrollToBottom();
-
-    Future.delayed(const Duration(seconds: 1, milliseconds: 200), () {
-      if (!mounted) return;
+  Future<void> _loadHistory() async {
+    final CollectionReference<Map<String, dynamic>>? chatRef = _chatCollection;
+    if (chatRef == null) {
       setState(() {
-        _isTyping = false;
-        final lower = text.toLowerCase();
-        bool showCard = lower.contains('gợi ý') || lower.contains('ăn gì') || lower.contains('đề xuất');
-        _messages.add({
-          'role': 'bot',
-          'text': _reply(text),
-          'time': _now(),
-          'hasCard': showCard,
-        });
+        _messages
+          ..clear()
+          ..add(_greetingMessage());
+        _isLoadingHistory = false;
+      });
+      return;
+    }
+
+    final QuerySnapshot<Map<String, dynamic>> snap = await chatRef
+        .orderBy('createdAt')
+        .get();
+
+    if (snap.docs.isEmpty) {
+      final Map<String, dynamic> greet = _greetingMessage();
+      await _persistMessage(
+        role: 'bot',
+        text: greet['text'] as String,
+        hasCard: false,
+      );
+      setState(() {
+        _messages
+          ..clear()
+          ..add(greet);
+        _isLoadingHistory = false;
       });
       _scrollToBottom();
+      return;
+    }
+
+    final List<Map<String, dynamic>> mapped = snap.docs.map((doc) {
+      final Map<String, dynamic> data = doc.data();
+      final DateTime createdAt =
+          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+      final List<Map<String, dynamic>> suggestions = _normalizeSuggestions(
+        data['foodSuggestions'],
+      );
+      return <String, dynamic>{
+        'role': (data['role'] ?? 'bot').toString(),
+        'text': (data['text'] ?? '').toString(),
+        'time': _formatTime(createdAt),
+        'hasCard': data['hasCard'] == true || suggestions.isNotEmpty,
+        'foodSuggestions': suggestions,
+      };
+    }).toList();
+
+    setState(() {
+      _messages
+        ..clear()
+        ..addAll(mapped);
+      _isLoadingHistory = false;
     });
+    _scrollToBottom();
   }
 
-  String _reply(String input) {
-    final l = input.toLowerCase();
-    if (l.contains('ăn gì') || l.contains('gợi ý') || l.contains('đề xuất')) {
-      return 'Tuyệt vời! Đây là một vài gợi ý dành cho bạn 🍜';
-    } else if (l.contains('ship') || l.contains('giao hàng')) {
-      return 'Phí giao hàng từ 10.000đ–25.000đ. Đơn trên 150.000đ miễn phí ship! 🛵';
-    } else if (l.contains('voucher') || l.contains('mã giảm')) {
-      return 'Vào Hồ sơ > Ví & Khuyến mãi để xem mã giảm giá nhé! 🎫';
+  Future<void> _persistMessage({
+    required String role,
+    required String text,
+    bool hasCard = false,
+    List<Map<String, dynamic>> foodSuggestions = const <Map<String, dynamic>>[],
+  }) async {
+    final CollectionReference<Map<String, dynamic>>? chatRef = _chatCollection;
+    if (chatRef == null) return;
+
+    final Map<String, dynamic> payload = <String, dynamic>{
+      'role': role,
+      'text': text,
+      'hasCard': hasCard,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    if (foodSuggestions.isNotEmpty) {
+      payload['foodSuggestions'] = foodSuggestions;
     }
-    return 'Tôi hiểu rồi! Bạn có thể hỏi về gợi ý món, phí ship, voucher hoặc bất kỳ thắc mắc nào về FoodExpress 😊';
+
+    await chatRef.add(payload);
+  }
+
+  Future<void> _appendMessage({
+    required String role,
+    required String text,
+    bool hasCard = false,
+    List<Map<String, dynamic>> foodSuggestions = const <Map<String, dynamic>>[],
+  }) async {
+    setState(() {
+      _messages.add(<String, dynamic>{
+        'role': role,
+        'text': text,
+        'time': _formatTime(DateTime.now()),
+        'hasCard': hasCard,
+        'foodSuggestions': foodSuggestions,
+      });
+    });
+    _scrollToBottom();
+    await _persistMessage(
+      role: role,
+      text: text,
+      hasCard: hasCard,
+      foodSuggestions: foodSuggestions,
+    );
+  }
+
+  Future<void> _clearHistory() async {
+    final CollectionReference<Map<String, dynamic>>? chatRef = _chatCollection;
+    if (chatRef != null) {
+      final QuerySnapshot<Map<String, dynamic>> docs = await chatRef.get();
+      final WriteBatch batch = FirebaseFirestore.instance.batch();
+      for (final QueryDocumentSnapshot<Map<String, dynamic>> doc in docs.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+
+    setState(() {
+      _messages
+        ..clear()
+        ..add(_greetingMessage());
+    });
+
+    _showSnack('Đã xóa lịch sử chat.');
+    _scrollToBottom();
+  }
+
+  Future<void> _openHistorySheet() async {
+    final CollectionReference<Map<String, dynamic>>? chatRef = _chatCollection;
+    if (chatRef == null) {
+      _showSnack('Bạn cần đăng nhập để xem lịch sử chat.');
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: FutureBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            future: chatRef.orderBy('createdAt', descending: true).get(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: AppTheme.primaryColor,
+                  ),
+                );
+              }
+
+              final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs =
+                  snapshot.data?.docs ??
+                  <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+
+              if (docs.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'Chưa có lịch sử chat.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 6),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Lịch sử chat',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppTheme.dividerColor),
+                  Expanded(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                      itemCount: docs.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 6),
+                      itemBuilder: (context, index) {
+                        final Map<String, dynamic> data = docs[index].data();
+                        final String role = (data['role'] ?? 'bot').toString();
+                        final String text = (data['text'] ?? '').toString();
+                        final DateTime createdAt =
+                            (data['createdAt'] as Timestamp?)?.toDate() ??
+                            DateTime.now();
+
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.dividerColor),
+                          ),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              radius: 16,
+                              backgroundColor: role == 'bot'
+                                  ? AppTheme.primaryColor.withOpacity(0.12)
+                                  : AppTheme.textSecondary.withOpacity(0.16),
+                              child: Icon(
+                                role == 'bot'
+                                    ? Icons.smart_toy_outlined
+                                    : Icons.person_outline,
+                                size: 16,
+                                color: role == 'bot'
+                                    ? AppTheme.primaryColor
+                                    : AppTheme.textPrimary,
+                              ),
+                            ),
+                            title: Text(
+                              text,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 14,
+                                height: 1.35,
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                _formatDateTime(createdAt),
+                                style: const TextStyle(
+                                  color: AppTheme.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  String _fallbackReply(String input) {
+    final String l = input.toLowerCase();
+    if (l.contains('ăn gì') || l.contains('gợi ý') || l.contains('đề xuất')) {
+      return 'Tuyet voi! Toi da nhan yeu cau goi y mon cho ban. Ban mo ta them ngan sach hoac so nguoi an nhe.';
+    }
+    if (l.contains('ship') || l.contains('giao hàng')) {
+      return 'Phi giao hang thuong tu 10.000d den 25.000d. Don tren 150.000d co the duoc freeship tuy khu vuc.';
+    }
+    if (l.contains('voucher') || l.contains('mã giảm')) {
+      return 'Ban vao Ho so > Vi va Khuyen mai de xem ma giam gia hien co.';
+    }
+    return 'Toi dang xu ly theo kieu du phong. Ban thu hoi: goi y combo cho 2 nguoi, tim mon cay, hoac mon dang trend.';
+  }
+
+  Future<void> _send(String text) async {
+    if (text.trim().isEmpty) return;
+
+    final String cleaned = text.trim();
+    _controller.clear();
+    await _appendMessage(role: 'user', text: cleaned);
+
+    setState(() => _isTyping = true);
+
+    N8nChatbotResponse? response;
+    try {
+      response = await _n8nService.ask(
+        message: cleaned,
+        userId: FirebaseAuth.instance.currentUser?.uid ?? 'guest',
+        history: _historyForN8n(),
+      );
+    } catch (_) {
+      response = null;
+    }
+
+    if (!mounted) return;
+
+    setState(() => _isTyping = false);
+
+    if (response != null) {
+      await _appendMessage(
+        role: 'bot',
+        text: response.reply,
+        hasCard: response.suggestions.isNotEmpty,
+        foodSuggestions: response.suggestions,
+      );
+      return;
+    }
+
+    final String lower = cleaned.toLowerCase();
+    final bool showCard =
+        lower.contains('gợi ý') ||
+        lower.contains('ăn gì') ||
+        lower.contains('đề xuất') ||
+        lower.contains('trend');
+    await _appendMessage(
+      role: 'bot',
+      text: _fallbackReply(cleaned),
+      hasCard: showCard,
+    );
   }
 
   void _scrollToBottom() {
@@ -72,11 +445,23 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent + 200,
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 260),
           curve: Curves.easeOut,
         );
       }
     });
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.accentColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
@@ -87,7 +472,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppTheme.textPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(
@@ -99,64 +487,111 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 color: AppTheme.primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.smart_toy_outlined, color: AppTheme.primaryColor, size: 20),
+              child: const Icon(
+                Icons.smart_toy_outlined,
+                color: AppTheme.primaryColor,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('AI Chef', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
-                Text('Luôn sẵn sàng', style: TextStyle(color: Color(0xFF4CAF50), fontSize: 11, fontWeight: FontWeight.w600)),
+              children: [
+                const Text(
+                  'AI Chef',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  _n8nService.isConfigured
+                      ? 'n8n AI dang ket noi'
+                      : 'Che do du phong (rule-based)',
+                  style: const TextStyle(
+                    color: Color(0xFF4CAF50),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
-            )
+            ),
           ],
         ),
-      ),
-      body: Column(
-        children: [
-          // ── Messages ──────────────────────────────────────────
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              itemCount: _messages.length + (_isTyping ? 1 : 0),
-              itemBuilder: (context, i) {
-                if (_isTyping && i == _messages.length) return _typingDots();
-                final msg = _messages[i];
-                final isBot = msg['role'] == 'bot';
-                return Column(
-                  children: [
-                    isBot ? _botBubble(msg['text'], msg['time']) : _userBubble(msg['text'], msg['time']),
-                    if (isBot && msg['hasCard'] == true) ...[
-                      const SizedBox(height: 8),
-                      _foodCard(),
-                    ]
-                  ],
-                );
-              },
-            ),
+        actions: [
+          IconButton(
+            onPressed: _openHistorySheet,
+            icon: const Icon(Icons.history_rounded),
+            tooltip: 'Xem lịch sử',
           ),
-
-          // ── Quick suggestions ─────────────────────────────────
-          if (_messages.length <= 2)
-            Container(
-              color: Colors.transparent,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              height: 42,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  _chip('Gợi ý món hôm nay'),
-                  _chip('Phí giao hàng?'),
-                  _chip('Có voucher nào không?'),
-                ],
-              ),
-            ),
-
-          // ── Input ─────────────────────────────────────────────
-          _inputBar(),
+          IconButton(
+            onPressed: _messages.length <= 1 ? null : _clearHistory,
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: 'Xóa lịch sử',
+          ),
         ],
       ),
+      body: _isLoadingHistory
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryColor),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    itemCount: _messages.length + (_isTyping ? 1 : 0),
+                    itemBuilder: (context, i) {
+                      if (_isTyping && i == _messages.length) {
+                        return _typingDots();
+                      }
+                      final msg = _messages[i];
+                      final bool isBot = msg['role'] == 'bot';
+                      final List<Map<String, dynamic>> suggestions =
+                          _normalizeSuggestions(msg['foodSuggestions']);
+                      return Column(
+                        children: [
+                          isBot
+                              ? _botBubble(
+                                  msg['text'] as String,
+                                  msg['time'] as String,
+                                )
+                              : _userBubble(
+                                  msg['text'] as String,
+                                  msg['time'] as String,
+                                ),
+                          if (isBot &&
+                              (msg['hasCard'] == true ||
+                                  suggestions.isNotEmpty)) ...[
+                            const SizedBox(height: 8),
+                            suggestions.isNotEmpty
+                                ? _foodSuggestionsRow(suggestions)
+                                : _foodCard(),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                if (_messages.length <= 2)
+                  Container(
+                    color: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    height: 42,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _chip('Goi y combo cho 2 nguoi budget 200k'),
+                        _chip('Tim mon it cay, de an buoi toi'),
+                        _chip('Mon nao dang trend hom nay?'),
+                      ],
+                    ),
+                  ),
+                _inputBar(),
+              ],
+            ),
     );
   }
 
@@ -171,7 +606,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppTheme.primaryColor.withOpacity(0.4)),
         ),
-        child: Text(text, style: const TextStyle(color: AppTheme.primaryColor, fontSize: 13, fontWeight: FontWeight.w600)),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: AppTheme.primaryColor,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -180,7 +622,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -192,14 +636,33 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               bottomLeft: Radius.circular(18),
               bottomRight: Radius.circular(18),
             ),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(text, style: const TextStyle(fontSize: 14, height: 1.5, color: AppTheme.textPrimary)),
+              Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text(time, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              Text(
+                time,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
             ],
           ),
         ),
@@ -211,7 +674,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     return Align(
       alignment: Alignment.centerRight,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.72,
+        ),
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -227,9 +692,22 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(text, style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.white)),
+              Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: Colors.white,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text(time, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.6))),
+              Text(
+                time,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
             ],
           ),
         ),
@@ -246,7 +724,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)],
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -274,67 +754,152 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   Widget _foodCard() {
+    return _foodSuggestionCard(const <String, dynamic>{
+      'name': 'Combo Pho Dac Biet',
+      'rating': 4.8,
+      'price': 125000,
+      'reason': 'Goi y mac dinh khi chua nhan duoc du lieu tu n8n.',
+      'category': 'Pho',
+    });
+  }
+
+  Widget _foodSuggestionsRow(List<Map<String, dynamic>> suggestions) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        width: 220,
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 3))],
+      child: SizedBox(
+        height: 200,
+        child: ListView.separated(
+          padding: const EdgeInsets.only(bottom: 10),
+          scrollDirection: Axis.horizontal,
+          itemCount: suggestions.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
+          itemBuilder: (context, index) =>
+              _foodSuggestionCard(suggestions[index]),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Container(
-                height: 100,
-                color: const Color(0xFFF0F0F0),
-                child: const Center(child: Icon(Icons.ramen_dining, size: 40, color: Colors.grey)),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      ),
+    );
+  }
+
+  Widget _foodSuggestionCard(Map<String, dynamic> suggestion) {
+    final String name = (suggestion['name'] ?? 'Mon goi y').toString();
+    final String category = (suggestion['category'] ?? '').toString();
+    final String reason = (suggestion['reason'] ?? '').toString();
+    final double rating = suggestion['rating'] is num
+        ? (suggestion['rating'] as num).toDouble()
+        : 0;
+    final double price = suggestion['price'] is num
+        ? (suggestion['price'] as num).toDouble()
+        : 0;
+
+    return Container(
+      width: 240,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: Container(
+              height: 64,
+              color: const Color(0xFFF6F6F6),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text('Combo Phở Đặc Biệt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      ),
-                      Row(
-                        children: const [
-                          Icon(Icons.star_rounded, color: Colors.amber, size: 16),
-                          SizedBox(width: 2),
-                          Text('4.8', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        ],
-                      )
-                    ],
+                  const SizedBox(width: 10),
+                  const Icon(
+                    Icons.local_fire_department_rounded,
+                    color: AppTheme.primaryColor,
+                    size: 22,
                   ),
-                  const SizedBox(height: 4),
-                  const Text('125.000đ', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 15)),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.add_shopping_cart_rounded, size: 16),
-                      label: const Text('Add to cart', style: TextStyle(fontSize: 13)),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      category.isEmpty ? 'Combo de xuat' : category,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
-            )
-          ],
-        ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    if (rating > 0)
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.star_rounded,
+                            color: Colors.amber,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            rating.toStringAsFixed(1),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatPrice(price),
+                  style: const TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                if (reason.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    reason,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -344,7 +909,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, -2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -352,15 +923,27 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             child: TextField(
               controller: _controller,
               textInputAction: TextInputAction.send,
-              onSubmitted: _send,
+              onSubmitted: (value) => _send(value),
               decoration: InputDecoration(
                 hintText: 'Nhập tin nhắn...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
                 filled: true,
                 fillColor: const Color(0xFFF0F0F0),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
               ),
             ),
           ),
@@ -374,7 +957,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 color: AppTheme.primaryColor,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
+              child: const Icon(
+                Icons.send_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
             ),
           ),
         ],

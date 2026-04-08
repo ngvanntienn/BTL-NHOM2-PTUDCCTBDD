@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../app_routes.dart';
+import '../../models/food_model.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../theme/app_theme.dart';
@@ -110,11 +112,6 @@ class HomeTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 28),
 
-                    _sectionHeader('Khám phá theo loại', 'Xem tất cả'),
-                    const SizedBox(height: 16),
-                    _buildCategoryRow(),
-                    const SizedBox(height: 28),
-
                     _buildAiBanner(),
                     const SizedBox(height: 28),
 
@@ -198,10 +195,86 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  Widget _sectionHeader(String title, String action) {
+  Widget _sectionHeader(
+    BuildContext context,
+    String title,
+    String action, {
+    VoidCallback? onTap,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.textPrimary)),
+        InkWell(
+          onTap: onTap,
+          child: Text(action, style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryRow(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('foods').snapshots(),
+      builder: (context, snapshot) {
+        final Set<String> set = <String>{};
+        for (final doc in snapshot.data?.docs ?? <QueryDocumentSnapshot<Map<String, dynamic>>>[]) {
+          final String category = (doc.data()['category'] ?? '').toString().trim();
+          if (category.isNotEmpty) {
+            set.add(category);
+          }
+        }
+
+        final List<String> categories = set.isEmpty
+            ? <String>['Cơm', 'Bún', 'Trà sữa', 'Pizza', 'Coffee', 'Snack', 'Bánh mì', 'Khác']
+            : set.toList()..sort();
+
+        return SizedBox(
+          height: 82,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            itemCount: categories.length > 8 ? 8 : categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, i) {
+              final String label = categories[i];
+              return GestureDetector(
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.category,
+                  arguments: CategoryRouteArgs(initialCategory: label),
+                ),
+                child: SizedBox(
+                  width: 64,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.09),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: const Icon(
+                          Icons.fastfood_outlined,
+                          color: AppTheme.primaryColor,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
         Text(title,
             style: const TextStyle(
                 fontWeight: FontWeight.bold,
@@ -275,16 +348,16 @@ class HomeTab extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildAiBanner() {
+  Widget _buildAiBanner(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -310,6 +383,42 @@ class HomeTab extends StatelessWidget {
               ],
             ),
           ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: InkWell(
+              onTap: () => Navigator.pushNamed(context, AppRoutes.chatbot),
+              child: const Icon(Icons.arrow_forward, color: Colors.white, size: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrendingRow(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('foods').limit(20).snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 195,
+            child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+          );
+        }
+
+        final List<FoodModel> foods = snapshot.data?.docs.map(FoodModel.fromDoc).toList() ?? <FoodModel>[];
+
+        final List<FoodModel> trendingFoods = foods.where((food) => food.isTrending).toList();
+        final List<FoodModel> source = trendingFoods.isEmpty ? foods : trendingFoods;
+
+        if (source.isEmpty) {
+          return Container(
+            height: 120,
+            alignment: Alignment.center,
           Padding(
             padding: EdgeInsets.all(8),
             child: Icon(Icons.arrow_forward, color: AppTheme.primaryColor, size: 16),
@@ -369,10 +478,107 @@ class HomeTab extends StatelessWidget {
           final p = products[i];
           return Container(
             width: 160,
+>>>>>>> main
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppTheme.dividerColor),
+            ),
+            child: const Text(
+              'Chưa có món thịnh hành từ Firestore',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 220,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: source.length > 8 ? 8 : source.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            itemBuilder: (_, i) {
+              final FoodModel food = source[i];
+              return InkWell(
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.foodDetail,
+                  arguments: FoodDetailRouteArgs(foodId: food.id),
+                ),
+                child: Container(
+                  width: 152,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.dividerColor),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                        child: SizedBox(
+                          height: 118,
+                          width: double.infinity,
+                          child: food.imageUrl.isNotEmpty
+                              ? Image.network(
+                                  food.imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => _fallbackImage(),
+                                )
+                              : _fallbackImage(),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              food.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${food.price.toStringAsFixed(0)}đ',
+                                  style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.star_rounded, color: Colors.amber, size: 15),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      food.rating == 0 ? 'Mới' : food.rating.toStringAsFixed(1),
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                    ),
+                                  ],
+                                )
+                              ],
+                            )
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _fallbackImage() {
+    return Container(
+      color: const Color(0xFFF5F5F5),
+      child: const Center(child: Icon(Icons.image_outlined, color: Colors.grey, size: 36)),
               boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
             ),
             child: Column(

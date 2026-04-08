@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app_routes.dart';
 import 'package:provider/provider.dart';
 import '../user_tabs/home_tab.dart';
 import '../user_tabs/search_tab.dart';
@@ -105,10 +106,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
       ),
       body: IndexedStack(index: _currentIndex, children: _pages),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ChatbotScreen()),
-        ),
+        onPressed: () => Navigator.pushNamed(context, AppRoutes.chatbot),
         backgroundColor: AppTheme.primaryColor,
         elevation: 4,
         shape: const CircleBorder(),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../app_routes.dart';
+import '../theme/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
@@ -7,7 +9,6 @@ import 'login_screen.dart';
 import 'home/user_home.dart';
 import 'home/seller_home.dart';
 import 'home/admin_home.dart';
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -33,6 +34,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
     _controller.forward();
 
+    Future.delayed(const Duration(seconds: 2, milliseconds: 500), () {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
     _checkLoginStatus();
   }
 

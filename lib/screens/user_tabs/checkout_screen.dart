@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -410,7 +412,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               height: 50,
               width: 140,
               child: FilledButton(
-                onPressed: () => _handlePlaceOrder(cart, addr),
+                onPressed: _isProcessing
+                    ? null
+                    : () => _handlePlaceOrder(cart, addr),
                 style: FilledButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -489,11 +493,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       setState(() => _isProcessing = true);
       try {
-        final orderId = await cart.placeOrder(
-          address: addr.detail,
-          phone: addr.phoneNumber,
-          paymentMethod: _paymentMethod,
-        );
+        final orderId = await cart
+            .placeOrder(
+              address: addr.detail,
+              phone: addr.phoneNumber,
+              paymentMethod: _paymentMethod,
+            )
+            .timeout(
+              const Duration(seconds: 25),
+              onTimeout: () => throw TimeoutException(
+                'Kết nối chậm. Vui lòng thử lại sau ít phút.',
+              ),
+            );
         if (mounted) {
           setState(() => _isProcessing = false);
           // Thêm thông báo đặt hàng thành công
@@ -508,7 +519,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           );
           _showSuccess(orderId);
         }
+      } on TimeoutException catch (e) {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Yêu cầu bị quá thời gian chờ.')),
+        );
       } catch (e) {
+        if (!mounted) {
+          return;
+        }
         setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),

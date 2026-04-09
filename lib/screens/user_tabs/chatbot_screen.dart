@@ -444,6 +444,286 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     return 'Tôi đang xử lý theo kiểu dự phòng. Bạn thử hỏi: gợi ý combo cho 2 người, tìm món cay, hoặc món đang trend.';
   }
 
+  String _normalizeForMatch(String input) {
+    String s = input.toLowerCase();
+    const Map<String, String> accents = <String, String>{
+      'à': 'a',
+      'á': 'a',
+      'ạ': 'a',
+      'ả': 'a',
+      'ã': 'a',
+      'â': 'a',
+      'ầ': 'a',
+      'ấ': 'a',
+      'ậ': 'a',
+      'ẩ': 'a',
+      'ẫ': 'a',
+      'ă': 'a',
+      'ằ': 'a',
+      'ắ': 'a',
+      'ặ': 'a',
+      'ẳ': 'a',
+      'ẵ': 'a',
+      'è': 'e',
+      'é': 'e',
+      'ẹ': 'e',
+      'ẻ': 'e',
+      'ẽ': 'e',
+      'ê': 'e',
+      'ề': 'e',
+      'ế': 'e',
+      'ệ': 'e',
+      'ể': 'e',
+      'ễ': 'e',
+      'ì': 'i',
+      'í': 'i',
+      'ị': 'i',
+      'ỉ': 'i',
+      'ĩ': 'i',
+      'ò': 'o',
+      'ó': 'o',
+      'ọ': 'o',
+      'ỏ': 'o',
+      'õ': 'o',
+      'ô': 'o',
+      'ồ': 'o',
+      'ố': 'o',
+      'ộ': 'o',
+      'ổ': 'o',
+      'ỗ': 'o',
+      'ơ': 'o',
+      'ờ': 'o',
+      'ớ': 'o',
+      'ợ': 'o',
+      'ở': 'o',
+      'ỡ': 'o',
+      'ù': 'u',
+      'ú': 'u',
+      'ụ': 'u',
+      'ủ': 'u',
+      'ũ': 'u',
+      'ư': 'u',
+      'ừ': 'u',
+      'ứ': 'u',
+      'ự': 'u',
+      'ử': 'u',
+      'ữ': 'u',
+      'ỳ': 'y',
+      'ý': 'y',
+      'ỵ': 'y',
+      'ỷ': 'y',
+      'ỹ': 'y',
+      'đ': 'd',
+    };
+
+    accents.forEach((String from, String to) {
+      s = s.replaceAll(from, to);
+    });
+    return s;
+  }
+
+  int? _extractPeopleCount(String prompt) {
+    final RegExp rx = RegExp(r'(\d+)\s*(nguoi|nguoi an|suat|phan)');
+    final Match? m = rx.firstMatch(_normalizeForMatch(prompt));
+    if (m == null) {
+      return null;
+    }
+    return int.tryParse(m.group(1) ?? '');
+  }
+
+  double? _extractBudgetVnd(String prompt) {
+    final String p = _normalizeForMatch(prompt);
+    final RegExp rx = RegExp(r'(\d+(?:[\.,]\d+)?)\s*(k|nghin|ngan|tr|trieu)?');
+    final Iterable<Match> matches = rx.allMatches(p);
+
+    double? best;
+    for (final Match m in matches) {
+      final String raw = (m.group(1) ?? '').replaceAll(',', '.');
+      final double? number = double.tryParse(raw);
+      if (number == null || number <= 0) {
+        continue;
+      }
+      final String unit = (m.group(2) ?? '').toLowerCase();
+      final double value = switch (unit) {
+        'k' || 'nghin' || 'ngan' => number * 1000,
+        'tr' || 'trieu' => number * 1000000,
+        _ => number,
+      };
+      if (best == null || value > best) {
+        best = value;
+      }
+    }
+
+    return best;
+  }
+
+  bool _containsAny(String haystack, List<String> needles) {
+    for (final String keyword in needles) {
+      if (haystack.contains(keyword)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Set<String> _extractPromptKeywords(String prompt) {
+    final String normalized = _normalizeForMatch(prompt);
+    final Set<String> stopwords = <String>{
+      'tim',
+      'mon',
+      'goi',
+      'y',
+      'goi',
+      'combo',
+      'cho',
+      'nguoi',
+      'an',
+      'buoi',
+      'toi',
+      'trua',
+      'sang',
+      'de',
+      'it',
+      'khong',
+      'cay',
+      'budget',
+      'duoi',
+      'tren',
+      'va',
+      'hoac',
+      'la',
+      'nhung',
+      'nhe',
+      'voi',
+      'toi',
+      'toi',
+      'nhieu',
+      're',
+      'ngon',
+      'hom',
+      'nay',
+      'dang',
+      'the',
+      'nao',
+    };
+
+    final Iterable<String> tokens = normalized
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((String t) => t.length >= 3 && !stopwords.contains(t));
+    return tokens.toSet();
+  }
+
+  List<Map<String, dynamic>> _filterSuggestionsByPrompt({
+    required String prompt,
+    required List<Map<String, dynamic>> suggestions,
+  }) {
+    if (suggestions.isEmpty) {
+      return suggestions;
+    }
+
+    final String normalizedPrompt = _normalizeForMatch(prompt);
+    final int? people = _extractPeopleCount(prompt);
+    final double? budget = _extractBudgetVnd(prompt);
+    final bool wantsSpicy =
+        normalizedPrompt.contains('cay') &&
+        !_containsAny(normalizedPrompt, <String>['it cay', 'khong cay']);
+    final bool wantsNotSpicy = _containsAny(normalizedPrompt, <String>[
+      'it cay',
+      'khong cay',
+    ]);
+    final bool hasPriceLimitHint = _containsAny(normalizedPrompt, <String>[
+      're',
+      'gia mem',
+      'gia tot',
+      'tiet kiem',
+      'duoi',
+    ]);
+    final Set<String> promptKeywords = _extractPromptKeywords(prompt);
+
+    final double? perPersonBudget =
+        (budget != null && people != null && people > 0)
+        ? budget / people
+        : null;
+
+    final bool hasHardConstraints =
+        budget != null ||
+        people != null ||
+        wantsSpicy ||
+        wantsNotSpicy ||
+        hasPriceLimitHint ||
+        promptKeywords.isNotEmpty;
+
+    final List<String> spicyKeywords = <String>[
+      'cay',
+      'spicy',
+      'xot thai',
+      'kimchi',
+      'sa te',
+      'sate',
+      'la lot',
+      'thai lan',
+    ];
+
+    final List<Map<String, dynamic>> filtered = suggestions.where((s) {
+      final double price = (s['price'] as num?)?.toDouble() ?? 0;
+      final String merged = _normalizeForMatch(
+        '${s['name'] ?? ''} ${s['category'] ?? ''} ${s['reason'] ?? ''}',
+      );
+
+      if (budget != null && price > 0) {
+        final double hardLimit = perPersonBudget != null
+            ? perPersonBudget * 1.2
+            : budget;
+        if (price > hardLimit) {
+          return false;
+        }
+      }
+
+      if (wantsSpicy && !_containsAny(merged, spicyKeywords)) {
+        return false;
+      }
+
+      if (wantsNotSpicy && _containsAny(merged, spicyKeywords)) {
+        return false;
+      }
+
+      if (promptKeywords.isNotEmpty) {
+        bool keywordMatched = false;
+        for (final String k in promptKeywords) {
+          if (merged.contains(k)) {
+            keywordMatched = true;
+            break;
+          }
+        }
+        if (!keywordMatched && promptKeywords.length <= 3) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
+
+    if (filtered.isEmpty && hasHardConstraints) {
+      return <Map<String, dynamic>>[];
+    }
+
+    final List<Map<String, dynamic>> base = filtered.isEmpty
+        ? suggestions
+        : filtered;
+    base.sort((Map<String, dynamic> a, Map<String, dynamic> b) {
+      final double ar = (a['rating'] as num?)?.toDouble() ?? 0;
+      final double br = (b['rating'] as num?)?.toDouble() ?? 0;
+      if (ar != br) {
+        return br.compareTo(ar);
+      }
+      final double ap = (a['price'] as num?)?.toDouble() ?? 0;
+      final double bp = (b['price'] as num?)?.toDouble() ?? 0;
+      return ap.compareTo(bp);
+    });
+
+    return base.take(3).toList();
+  }
+
   Map<String, dynamic> _mapFoodToSuggestion(Map<String, dynamic> data) {
     final String foodId = (data['foodId'] ?? data['id'] ?? '').toString();
     final String name = (data['name'] ?? 'Món').toString();
@@ -533,11 +813,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             final String sellerId = (data['sellerId'] ?? '').toString();
             return sellerId.isNotEmpty && activeSellerIds.contains(sellerId);
           })
-          .take(5)
           .map(_mapFoodToSuggestion)
           .toList();
 
-      if (suggestions.isEmpty) {
+      final List<Map<String, dynamic>> filteredSuggestions =
+          _filterSuggestionsByPrompt(prompt: input, suggestions: suggestions);
+
+      if (filteredSuggestions.isEmpty) {
         return <String, dynamic>{
           'reply':
               'Hiện chưa có món nào từ cửa hàng đang bán để gợi ý cho bạn.',
@@ -545,7 +827,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         };
       }
 
-      final List<String> top = suggestions
+      final List<String> top = filteredSuggestions
           .take(3)
           .map(
             (s) =>
@@ -556,7 +838,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       return <String, dynamic>{
         'reply':
             'Gợi ý từ các cửa hàng đang bán: ${top.join(', ')}. Bạn có thể xem chi tiết trong phần gợi ý dưới đây.',
-        'suggestions': suggestions,
+        'suggestions': filteredSuggestions,
       };
     }
 
@@ -599,11 +881,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     setState(() => _isTyping = false);
 
     if (response != null) {
+      final List<Map<String, dynamic>> filteredSuggestions =
+          _filterSuggestionsByPrompt(
+            prompt: cleaned,
+            suggestions: response.suggestions,
+          );
       await _appendMessage(
         role: 'bot',
         text: response.reply,
-        hasCard: response.suggestions.isNotEmpty,
-        foodSuggestions: response.suggestions,
+        hasCard: filteredSuggestions.isNotEmpty,
+        foodSuggestions: filteredSuggestions,
       );
       return;
     }

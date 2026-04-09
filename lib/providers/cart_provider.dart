@@ -197,13 +197,21 @@ class CartProvider extends ChangeNotifier {
     final Map<String, List<CartItemModel>> itemsBySellerId =
         <String, List<CartItemModel>>{};
 
-    for (final CartItemModel item in selectedItems) {
-      final DocumentSnapshot<Map<String, dynamic>> foodDoc =
-          await FirebaseFirestore.instance
-              .collection('foods')
-              .doc(item.product.id)
-              .get();
+    final List<DocumentSnapshot<Map<String, dynamic>>> foodDocs =
+        await Future.wait<DocumentSnapshot<Map<String, dynamic>>>(
+          selectedItems
+              .map(
+                (CartItemModel item) => FirebaseFirestore.instance
+                    .collection('foods')
+                    .doc(item.product.id)
+                    .get(),
+              )
+              .toList(),
+        );
 
+    for (int i = 0; i < selectedItems.length; i++) {
+      final CartItemModel item = selectedItems[i];
+      final DocumentSnapshot<Map<String, dynamic>> foodDoc = foodDocs[i];
       final String sellerId = (foodDoc.data()?['sellerId'] ?? '').toString();
       if (sellerId.isEmpty) {
         throw 'Không xác định được cửa hàng của món ${item.product.name}.';
@@ -287,7 +295,7 @@ class CartProvider extends ChangeNotifier {
       await _voucherService.applyVoucher(_appliedVoucher!.id);
     }
 
-    await AudioHelper.playSuccess();
+    AudioHelper.playSuccess();
 
     removeSelected(); // Remove only ordered items
     _appliedVoucher = null;

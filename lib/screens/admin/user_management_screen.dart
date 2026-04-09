@@ -71,10 +71,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   Future<void> _deleteUser(String userId, String userName) async {
+    final screenContext = context;
     final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (currentUid == userId) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(screenContext).showSnackBar(
           const SnackBar(
             content: Text('Không thể tự xóa tài khoản đang đăng nhập.'),
             backgroundColor: Colors.redAccent,
@@ -85,22 +86,22 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
 
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: screenContext,
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Xác nhận xóa'),
         content: Text('Bạn có chắc chắn muốn xóa tài khoản "$userName"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Hủy'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
 
               final userProvider = Provider.of<UserProvider>(
-                context,
+                screenContext,
                 listen: false,
               );
               final rollback = userProvider.deleteUserOptimistically(userId);
@@ -109,24 +110,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 // Delete from Firestore
                 final outcome = await userProvider.deleteUser(userId);
 
-                if (mounted) {
-                  if (outcome == DeleteUserOutcome.firestoreOnly) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Đã xóa trong app/Firestore. Firebase Authentication vẫn còn vì Cloud Functions chưa deploy được trên Spark.',
-                        ),
-                        backgroundColor: Colors.orangeAccent,
+                if (!mounted) return;
+
+                if (outcome == DeleteUserOutcome.firestoreOnly) {
+                  ScaffoldMessenger.of(screenContext).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Đã xóa trong app/Firestore. Firebase Authentication vẫn còn vì Cloud Functions chưa deploy được trên Spark.',
                       ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Đã xóa tài khoản'),
-                        backgroundColor: AppTheme.accentColor,
-                      ),
-                    );
-                  }
+                      backgroundColor: Colors.orangeAccent,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(screenContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Đã xóa tài khoản'),
+                      backgroundColor: AppTheme.accentColor,
+                    ),
+                  );
                 }
               } catch (e) {
                 if (rollback.removedUser != null) {
@@ -135,14 +136,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     rollback.removedIndex,
                   );
                 }
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Lỗi: $e'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
-                }
+                if (!mounted) return;
+                ScaffoldMessenger.of(screenContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Lỗi: $e'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
               }
             },
             child: const Text('Xóa'),

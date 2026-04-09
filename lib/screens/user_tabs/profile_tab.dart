@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -166,7 +166,7 @@ class _ProfileTabState extends State<ProfileTab> {
             const SizedBox(height: 12),
             _tile(
               icon: Icons.person_outline,
-              title: 'Chinh sua thong tin',
+              title: 'Chỉnh sửa thông tin',
               subtitle: 'Cập nhật họ tên, email, mật khẩu',
               onTap: _openEditProfile,
             ),
@@ -184,14 +184,14 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
             _tile(
               icon: Icons.favorite_border,
-              title: 'Mon yeu thich',
-              subtitle: 'Xem danh sach da luu',
+              title: 'Món yêu thích',
+              subtitle: 'Xem danh sách đã lưu',
               onTap: () => Navigator.pushNamed(context, AppRoutes.favorites),
             ),
             _tile(
               icon: Icons.local_offer_outlined,
               title: 'Ví voucher',
-              subtitle: 'Xem va chon ma giam gia',
+              subtitle: 'Xem và chọn mã giảm giá',
               onTap: () => Navigator.pushNamed(context, AppRoutes.voucher),
             ),
             _tile(
@@ -209,7 +209,7 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
             _tile(
               icon: Icons.payment_outlined,
-              title: 'Phuong thuc thanh toan',
+              title: 'Phương thức thanh toán',
               subtitle: 'Quản lý phương thức thanh toán',
               onTap: () {
                 Navigator.push(
@@ -224,7 +224,7 @@ class _ProfileTabState extends State<ProfileTab> {
               _tile(
                 icon: Icons.storefront_outlined,
                 title: 'Seller Panel',
-                subtitle: 'Quản lý cửa hàng va don hang',
+                subtitle: 'Quản lý cửa hàng và đơn hàng',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -241,7 +241,7 @@ class _ProfileTabState extends State<ProfileTab> {
                 onPressed: _logout,
                 icon: const Icon(Icons.logout, color: Colors.redAccent),
                 label: const Text(
-                  'Dang xuat',
+                  'Đăng xuất',
                   style: TextStyle(
                     color: Colors.redAccent,
                     fontWeight: FontWeight.bold,

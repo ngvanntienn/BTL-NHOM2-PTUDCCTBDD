@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../app_routes.dart';
@@ -31,7 +31,7 @@ class HomeTab extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Kham pha mon ngon theo danh muc va xu huong',
+                'Khám phá món ngon theo danh mục và xu hướng',
                 style: TextStyle(color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 16),
@@ -40,7 +40,7 @@ class HomeTab extends StatelessWidget {
               _promoBanner(),
               const SizedBox(height: 24),
               _sectionHeader(
-                title: 'Danh muc noi bat',
+                title: 'Danh mục nổi bật',
                 actionText: 'Xem tất cả',
                 onTap: onSeeAll,
               ),
@@ -161,9 +161,9 @@ class HomeTab extends StatelessWidget {
 
   Widget _categoryGrid({ValueChanged<String>? onCategorySelected}) {
     final List<_CategoryItem> categories = <_CategoryItem>[
-      const _CategoryItem('Com', Icons.rice_bowl_outlined),
-      const _CategoryItem('Bun & Pho', Icons.ramen_dining_outlined),
-      const _CategoryItem('Tra sua', Icons.local_cafe_outlined),
+      const _CategoryItem('Cơm', Icons.rice_bowl_outlined),
+      const _CategoryItem('Bún & Phở', Icons.ramen_dining_outlined),
+      const _CategoryItem('Trà sữa', Icons.local_cafe_outlined),
       const _CategoryItem('Pizza', Icons.local_pizza_outlined),
       const _CategoryItem('Snack', Icons.cookie_outlined),
       const _CategoryItem('Healthy', Icons.eco_outlined),
@@ -340,7 +340,7 @@ class HomeTab extends StatelessWidget {
                                   const SizedBox(width: 3),
                                   Text(
                                     food.rating == 0
-                                        ? 'Moi'
+                                        ? 'Mới'
                                         : food.rating.toStringAsFixed(1),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,
